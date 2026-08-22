@@ -1,0 +1,30 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; case \"$f\" in *.java) cd /Users/yoon/Code/dividend-anatomy && ./gradlew compileJava -q ;; esac; }",
+            "timeout": 60,
+            "statusMessage": "컴파일 확인 중 (compileJava)..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/yoon/Code/dividend-anatomy && ./gradlew test -q",
+            "timeout": 300,
+            "async": true,
+            "statusMessage": "전체 테스트 실행 중 (test)..."
+          }
+        ]
+      }
+    ]
+  }
+}
