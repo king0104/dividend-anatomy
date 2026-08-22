@@ -6,8 +6,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record MassiveSplitsResponse(
-        List<MassiveSplit> results,
+public record MassiveDividendsResponse(
+        List<MassiveDividend> results,
         String status,
-        @JsonProperty("next_url") String nextUrl) implements MassivePaginatedResponse<MassiveSplit> {
+        @JsonProperty("next_url") String nextUrl) implements MassivePaginatedResponse<MassiveDividend> {
 }
