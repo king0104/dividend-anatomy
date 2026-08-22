@@ -11,9 +11,13 @@ import java.util.Optional;
 
 public interface DividendPaymentRepository extends JpaRepository<DividendPayment, Long> {
 
-    /** Between은 Spring Data에서 양 끝 포함 — TTM 창 "[t-12개월, t] 양 끝 포함" 정의와 그대로 맞는다. */
-    List<DividendPayment> findByTickerAndTypeAndExDividendDateBetweenOrderByExDividendDateAsc(
-            Ticker ticker, DividendType type, LocalDate start, LocalDate end);
+    /**
+     * TTM 창 "(t-12개월, t] 시작점 제외, 끝만 포함" 정의(docs/decisions/05-ttm-window-boundary-fix.md).
+     * 양 끝 포함으로 하면 정확히 12개월 차이 나는 두 지급일이 인접한 두 창에 모두
+     * 걸려 이중 계산된다 — 실제 KO 배당 이력에서 발생 확인(docs/ai-defects/04).
+     */
+    List<DividendPayment> findByTickerAndTypeAndExDividendDateAfterAndExDividendDateLessThanEqualOrderByExDividendDateAsc(
+            Ticker ticker, DividendType type, LocalDate startExclusive, LocalDate endInclusive);
 
     Optional<DividendPayment> findByTickerAndExDividendDate(Ticker ticker, LocalDate exDividendDate);
 

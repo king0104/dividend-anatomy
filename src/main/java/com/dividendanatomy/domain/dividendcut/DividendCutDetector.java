@@ -32,17 +32,25 @@ public final class DividendCutDetector {
                 continue;
             }
 
-            if (curr.actualSum().compareTo(prev.actualSum()) < 0) {
-                BigDecimal decreasePercent = prev.actualSum().subtract(curr.actualSum(), MC)
-                        .divide(prev.actualSum(), MC)
+            // 완전한 창끼리는 actualSum이 아니라 annualizedSum으로 비교한다 — 실제
+            // 배당 캘린더는 91.25일 간격이 아니라서 창마다 지급 횟수가 4~5회로
+            // 자연스럽게 오갈 수 있고(캘린더 드리프트), raw 합계를 그대로 비교하면
+            // 회사가 배당을 바꾸지 않았는데도 가짜 삭감/가짜 성장 신호가 생긴다
+            // (docs/decisions/05-ttm-window-boundary-fix.md 참고).
+            BigDecimal prevAnnualized = prev.annualizedSum();
+            BigDecimal currAnnualized = curr.annualizedSum();
+
+            if (currAnnualized.compareTo(prevAnnualized) < 0) {
+                BigDecimal decreasePercent = prevAnnualized.subtract(currAnnualized, MC)
+                        .divide(prevAnnualized, MC)
                         .multiply(BigDecimal.valueOf(100), MC);
                 results.add(new CutComparisonResult(
                         detectedAt, CutComparisonStatus.CUT,
-                        prev.actualSum(), curr.actualSum(), decreasePercent));
+                        prevAnnualized, currAnnualized, decreasePercent));
             } else {
                 results.add(new CutComparisonResult(
                         detectedAt, CutComparisonStatus.NORMAL,
-                        prev.actualSum(), curr.actualSum(), null));
+                        prevAnnualized, currAnnualized, null));
             }
         }
 

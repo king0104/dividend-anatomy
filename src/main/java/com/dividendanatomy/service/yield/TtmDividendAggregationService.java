@@ -36,7 +36,7 @@ public class TtmDividendAggregationService {
     public TtmDividendSummary summarize(Ticker ticker, LocalDate windowEnd, int expectedCount) {
         LocalDate windowStart = windowEnd.minusMonths(12);
         List<DividendPayment> payments = dividendPaymentRepository
-                .findByTickerAndTypeAndExDividendDateBetweenOrderByExDividendDateAsc(
+                .findByTickerAndTypeAndExDividendDateAfterAndExDividendDateLessThanEqualOrderByExDividendDateAsc(
                         ticker, DividendType.REGULAR, windowStart, windowEnd);
 
         BigDecimal actualSum = BigDecimal.ZERO;

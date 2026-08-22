@@ -33,7 +33,12 @@ raw 금액 비교로는 오탐한다. TTM 합계(이미 분할 조정됨, [[yiel
 |---|---|
 | `payments` | 해당 종목의 `DividendType.REGULAR` 지급 이력 전체, ex-dividend date 오름차순 정렬 |
 | `N` | 해당 종목의 연간 정기 배당 지급 횟수 (`Ticker.regularPaymentsPerYear`, 필수 입력) |
-| `TTM(t)` | ex-dividend date `t`를 창 끝으로 하는 TTM 합계 — `TtmDividendAggregationService.summarize(ticker, t, N)`의 결과 그대로 (`actualSum`, `foundCount`) |
+| `TTM(t)` | ex-dividend date `t`를 창 끝으로 하는 TTM 집계 — `TtmDividendAggregationService.summarize(ticker, t, N)`의 결과 그대로 (`actualSum`, `annualizedSum`, `foundCount`) |
+
+**창 정의는 `(t-12개월, t]`(시작점 제외, 끝만 포함)이다** —
+`[t-12개월, t]`(양 끝 포함)로 하면 정확히 12개월 차이 나는 두 지급일이
+인접한 두 창에 모두 걸려 이중 계산된다. 실제 KO 데이터로 이 문제를
+확인하고 고친 과정은 `docs/decisions/05-ttm-window-boundary-fix.md` 참고.
 
 ### 1.3 삭감 판정 알고리즘
 
@@ -43,28 +48,41 @@ payments를 ex-dividend date 오름차순으로 순회하면서, 두 번째 지�
   prev = TTM(payments[i-1].exDividendDate)
   curr = TTM(payments[i].exDividendDate)
 
-  두 TTM 창 중 하나라도 foundCount < N (불완전)이면:
+  두 TTM 창 중 하나라도 foundCount < N (불완전, 데이터 구멍)이면:
       → "판정 불가" (삭감도 정상도 아님, 데이터 불완전으로 별도 표시)
-  아니면 (두 창 모두 foundCount == N, 완전):
-      curr.actualSum < prev.actualSum  →  삭감 이벤트, 시점 = payments[i].exDividendDate
-      curr.actualSum >= prev.actualSum →  정상 (삭감 아님)
+  아니면 (두 창 모두 foundCount >= N, 완전 — foundCount가 N을 넘는 것도 완전):
+      curr.annualizedSum < prev.annualizedSum  →  삭감 이벤트, 시점 = payments[i].exDividendDate
+      curr.annualizedSum >= prev.annualizedSum →  정상 (삭감 아님)
 
 payments가 0건 또는 1건이면 비교 대상 자체가 없음 → 삭감 이벤트 없음
 (에러 아님, 그냥 빈 결과).
 ```
 
-`TtmDividendSummary`의 기존 불변식(`foundCount==0`이면 `annualizedSum`은
-`null`)이 이미 있어서, 이력이 막 시작된 시점의 "직전 TTM이 0건"인
-경우는 자동으로 "불완전 → 판정 불가"로 걸러진다(0으로 나누기 걱정
-없음).
+**왜 `actualSum`이 아니라 `annualizedSum`으로 비교하는가**: 실제 배당
+캘린더는 정확히 91.25일(365.25일/4) 간격이 아니다 — KO 실데이터
+기준으로 지급 간격이 77일~102일까지 들쭉날쭉하다. 그래서 창 정의를
+아무리 정확히 해도, 롤링 12개월 창 안에 분기 배당이 **자연스럽게
+5번 들어가는 해**가 있다(캘린더 드리프트, 버그 아님). `actualSum`을
+그대로 비교하면 `foundCount`가 4↔5로 바뀔 때마다 회사가 배당을
+바꾸지 않았는데도 가짜 삭감/가짜 성장 신호가 생긴다. `annualizedSum`
+(`= actualSum * N / foundCount`)은 이 지급 횟수 차이를 자동으로
+정규화하므로 비교 기준으로 쓴다. `foundCount == N`인 경우
+`annualizedSum == actualSum`이라 기존 손계산 케이스와 결과가 달라지지
+않는다.
+
+`TtmDividendSummary`의 `isComplete()`는 `foundCount >= expectedCount`로
+정의된다 — 부족(구멍)만 불완전이고, 초과(캘린더 드리프트)는 완전으로
+취급한다. `foundCount==0`이면 `annualizedSum`은 `null`이라(불변식),
+이력이 막 시작된 시점의 "직전 TTM이 0건"인 경우는 애초에 `isComplete()`가
+`false`라 "불완전 → 판정 불가"로 걸러진다.
 
 ### 1.4 감소율(%) 계산 — 삭감 이벤트에만 부가 정보로 노출
 
 ```
-decreasePercent = (prev.actualSum - curr.actualSum) / prev.actualSum * 100
+decreasePercent = (prev.annualizedSum - curr.annualizedSum) / prev.annualizedSum * 100
 ```
 
-`prev.actualSum`이 0이 되는 경우는 1.3의 "불완전 → 판정 불가" 규칙에서
+`prev.annualizedSum`이 0이 되는 경우는 1.3의 "불완전 → 판정 불가" 규칙에서
 이미 걸러지므로(완전한 TTM 창인데 합계가 0이려면 N=0이어야 하는데
 `TtmDividendSummary` 생성자가 `expectedCount > 0`을 강제) 실제로
 발생하지 않는다.
@@ -102,7 +120,8 @@ decreasePercent = (prev.actualSum - curr.actualSum) / prev.actualSum * 100
 |---|---|
 | 정기 배당 이력이 0건 또는 1건 | 비교 대상 없음 → 삭감 이벤트 없는 빈 결과 반환 (에러 아님) |
 | `N`(`regularPaymentsPerYear`)이 설정 안 됨 | 계산 자체 불가 → `IllegalStateException` ([[yield-change-decomposition]]의 `YieldDecompositionService`와 동일한 예외 패턴 재사용) |
-| 두 지급 사이 TTM 창 중 하나라도 불완전(`foundCount < N`) | 삭감/정상으로 확정 판정하지 않고 **"판정 불가(데이터 불완전)"**로 별도 분류해서 노출 — 조용히 넘기지 않는다(CLAUDE.md) |
+| 두 지급 사이 TTM 창 중 하나라도 불완전(`foundCount < N`, 구멍) | 삭감/정상으로 확정 판정하지 않고 **"판정 불가(데이터 불완전)"**로 별도 분류해서 노출 — 조용히 넘기지 않는다(CLAUDE.md) |
+| 캘린더 드리프트로 창에 지급이 N번보다 많이 들어감(`foundCount > N`) | 불완전이 아니라 **완전**으로 취급(`isComplete()`), `annualizedSum`으로 정규화해서 비교 — 자세한 근거는 1.3절, `docs/decisions/05-ttm-window-boundary-fix.md` |
 | 창 구간에 분할이 있었음 | `TtmDividendAggregationService`가 이미 분할 조정하므로 이 계산식에서 추가 처리 불필요 — 기존 로직 재사용, 새 리스크 아님 |
 | 특별배당 혼입 | `DividendType.REGULAR`만 조회하므로 자동 배제 (0절) |
 | 감소 임계값 | **0원보다만 줄어도 삭감으로 판정**한다(사용자 결정). 반올림·오차 허용 폭을 따로 두지 않는다 — BigDecimal 정확 비교라 애매한 경계값 자체가 없다 |

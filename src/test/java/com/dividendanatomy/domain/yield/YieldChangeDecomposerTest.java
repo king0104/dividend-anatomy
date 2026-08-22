@@ -7,6 +7,7 @@ import java.math.MathContext;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -117,13 +118,25 @@ class YieldChangeDecomposerTest {
     @Test
     void ttmDividendSummary_rejectsInconsistentState() {
         assertThrows(IllegalArgumentException.class,
-                () -> new TtmDividendSummary(BigDecimal.ZERO, null, 5, 4)); // foundCount > expectedCount
-        assertThrows(IllegalArgumentException.class,
                 () -> new TtmDividendSummary(BigDecimal.ZERO, null, -1, 4)); // foundCount < 0
         assertThrows(IllegalArgumentException.class,
                 () -> new TtmDividendSummary(BigDecimal.ZERO, bd("1.00"), 0, 4)); // foundCount=0인데 annualizedSum 있음
         assertThrows(IllegalArgumentException.class,
                 () -> new TtmDividendSummary(BigDecimal.ZERO, null, 0, 0)); // expectedCount <= 0
+    }
+
+    /**
+     * 실제 배당 캘린더는 91.25일 간격이 아니라서 롤링 12개월 창에 분기 배당이
+     * 5번 들어가는 경우가 있다(KO 실데이터로 확인) — foundCount가 expectedCount를
+     * 넘는 건 예외가 아니라 정상이고, isComplete()는 "부족하지 않음"만 본다.
+     */
+    @Test
+    void ttmDividendSummary_allowsFoundCountToExceedExpectedCountAndMarksComplete() {
+        TtmDividendSummary surplus = new TtmDividendSummary(bd("5.00"), bd("4.00"), 5, 4);
+        assertTrue(surplus.isComplete());
+
+        TtmDividendSummary gap = new TtmDividendSummary(bd("3.00"), bd("4.00"), 3, 4);
+        assertFalse(gap.isComplete());
     }
 
     private static BigDecimal bd(String value) {

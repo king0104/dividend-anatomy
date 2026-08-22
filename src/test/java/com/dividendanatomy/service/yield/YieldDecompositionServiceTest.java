@@ -55,14 +55,14 @@ class YieldDecompositionServiceTest {
         priceBarRepository.save(new PriceBar(ticker, t0, new BigDecimal("100.00"), DataSource.TWELVE_DATA));
         priceBarRepository.save(new PriceBar(ticker, t1, new BigDecimal("80.00"), DataSource.TWELVE_DATA));
 
-        // t0 기준 TTM 창: [t0-12개월, t0] = 4회 * 0.75 = 3.00
-        // 마지막 지급일을 t0-1일로 둬서, t1 창([t0, t1], 양 끝 포함)과 경계가 겹쳐
-        // 이중으로 잡히지 않게 한다 (t0 = t1-12개월이 정확히 t1 창의 왼쪽 경계라
-        // t0 그 날짜에 지급이 있으면 t0 창과 t1 창 양쪽에 다 걸린다).
+        // t0 기준 TTM 창: (t0-12개월, t0] = 4회 * 0.75 = 3.00
+        // t0 그 날짜에 지급을 둬도(창 정의가 시작점 제외/끝만 포함이라
+        // t1 창 (t0, t1]의 시작점에는 안 걸림 — docs/decisions/05-ttm-window-boundary-fix.md,
+        // 예전엔 이중 계산을 피하려고 t0.minusDays(1)로 옮겼었지만 이제 불필요.
         saveDividend(ticker, t0.minusMonths(9), "0.75");
         saveDividend(ticker, t0.minusMonths(6), "0.75");
         saveDividend(ticker, t0.minusMonths(3), "0.75");
-        saveDividend(ticker, t0.minusDays(1), "0.75");
+        saveDividend(ticker, t0, "0.75");
 
         // t1 기준 TTM 창: [t1-12개월, t1] = 4회 * 0.90 = 3.60
         saveDividend(ticker, t1.minusMonths(9), "0.90");

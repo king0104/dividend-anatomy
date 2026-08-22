@@ -35,7 +35,7 @@
 ### 1.2 TTM 배당 합계 — 실제합산과 연환산 둘 다 계산
 
 ```
-window = [t - 12개월, t]  (양 끝 포함)
+window = (t - 12개월, t]  (시작점 제외, 끝만 포함 — docs/decisions/05-ttm-window-boundary-fix.md)
 found = window 안의 정기 배당 지급 목록 (특별배당 제외, 이미 분류된 것으로 간주)
 k(t) = found.size()
 D_actual(t) = sum(found.amount)   // BigDecimal 합, 반올림 없이 그대로
