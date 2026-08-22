@@ -117,15 +117,52 @@ Twelve Data(주가 시계열)** 조합으로 쓰면 무료로 전부 확보된�
 "제공자별 어댑터로 격리 → 교체 비용 최소화" 원칙은 그대로 유지하면서, 데이터
 종류별로 제공자를 나눠 붙이는 방식으로 확장한다.
 
-→ **잠정 결정**: 배당 이력·분할 이력 = Massive, 주가 시계열 = Twelve Data.
-→ Stooq 검증은 보류 (필요 조건이 이미 충족되어 우선순위 낮음. 추후 Twelve Data
-  약관/요금 정책이 바뀌면 재검토).
+→ **잠정 결정 (2026-08-22 기준, 아래 약관 문제로 아직 확정 아님)**: 배당 이력·분할
+  이력 = Massive, 주가 시계열 = Twelve Data.
+→ Stooq 검증은 보류했으나, 아래 약관 문제로 재검토 필요성이 생겼다.
+
+## 약관 재검토 — "무료로 오는가"와 "공개 배포해도 되는가"는 다른 질문
+
+PROJECT.md 7장이 Finnhub를 주력으로 골랐던 핵심 이유 중 하나가 "개인·비상업 용도
+명시 → 포트폴리오 배포가 이 범위에 부합"이었고, FMP는 정반대 이유("표시·재배포 시
+별도 라이선스 계약 필요")로 제외됐다. 지금까지 Massive/Twelve Data 검증은 **API가
+데이터를 주는가**만 확인했지, **그 데이터를 공개 웹사이트에 표시해도 되는가**는
+확인하지 않았다. 웹 검색 + 공식 약관 페이지로 확인한 결과:
+
+### Twelve Data — 문제 확인됨
+
+- 공식 약관(twelvedata.com/terms) 2.3(l): 무료(Free Tier) 데이터는 상업적 목적
+  사용 금지
+- 2.4조: 재배포(redistribution)나 외부 공개 표시(external display)는 특정 유료
+  Subscription Tier / Data Add-on에서만 허용
+- 지원 문서(Commercial and personal usage): 무료 플랜은 "strictly for personal
+  or internal use"이며, **포트폴리오 웹사이트에 주가 차트나 배당 이력을 공개
+  표시하는 것은 허용되지 않는다**고 명시
+→ **FMP와 같은 사유로 걸린다.** 무료 플랜으로 받은 주가 시계열은 공개 배포용으로
+  쓸 수 없다고 봐야 한다.
+
+### Massive(구 Polygon.io) — 불명확, 확정 못 함
+
+- 약관(massive.com/legal/individuals-terms-of-service)은 "personal, non-commercial,
+  and non-business purposes" 사용만 허용한다고 명시하지만, 공개 웹사이트 표시나
+  재배포를 명시적으로 허용/금지하는 조항을 자동 파싱으로는 찾지 못했다
+- Finnhub처럼 "포트폴리오 배포가 이 범위에 부합"이라고 명확히 말하는 문구는 없었다
+- **법적 문제라 추측으로 결론 내리지 않는다.** support@massive.com에 직접 문의해
+  서면 확인이 필요한 상태로 남겨둔다
+
+### 영향
+
+- Twelve Data를 주가 시계열 소스로 그대로 쓰면, 이 프로젝트가 FMP를 제외했던 논리와
+  스스로 모순된다. **주가 시계열 제공자를 재검토해야 한다.**
+- Massive도 배당/분할 이력에 대해 같은 확인이 안 끝난 상태다.
 
 ## 다음 단계
 
-- [ ] Massive 데이터의 개인/비상업 재배포·표시 약관 확인 (Finnhub는 이 조건이 맞아
-      주력으로 선정했었다 — Massive는 동일 조건인지 별도 확인 필요)
-- [ ] Twelve Data 데이터의 개인/비상업 재배포·표시 약관 확인 (동일 이유)
+- [ ] Massive support에 개인 프로젝트 공개 배포 가능 여부 서면 문의 (support@massive.com)
+- [ ] 확인 전까지 Twelve Data는 "약관상 공개 배포 불가"로 간주하고, 주가 시계열
+      대체 후보로 Stooq 검증 재개 (재배포 약관부터 먼저 확인)
+- [ ] Stooq 약관 확인 후에도 안 풀리면, Finnhub/Massive 유료 플랜 중 예산 내에서
+      "주가만" 저렴하게 커버하는 옵션이 있는지 확인
 - [ ] 두 제공자를 조합해 쓸 때 어댑터 경계를 어떻게 나눌지 설계 (예: `PriceDataSource`,
-      `DividendDataSource` 인터페이스 분리)
+      `DividendDataSource` 인터페이스 분리) — 단, 약관 확정 후 진행
 - [ ] 위 확인 후 최종 조합과 기준 시점(3년 vs 5년) 확정
