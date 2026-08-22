@@ -79,10 +79,89 @@ mongodb 탭 신뢰 문제를 일회성으로 우회)하고 정식 jq 기반으�
 
 ---
 
-## Day 2 (예정)
+## Day 2 (2026-08-23)
 
-- 슬래시 커맨드 `/spec`, `/defect`, `/verify`
-- 배당 규칙 조사 — T+1 전환 SEC 원문 인용
-- `docs/ai-predictions.md`는 이미 있음 → 결과 칸 채우기는 구현 진행하며
-- `docs/workflow.md` — 지표 추가 8단계
-- 지표별 스펙 확정(`docs/specs/`) → 테스트 먼저 작성
+커밋 5개. Day 1에서 세운 통제 장치(스펙 우선, 사전 예측, ArchUnit,
+Hooks)가 실제로 AI 실수를 막거나 잡아내는지 이번 Day 2에서 전부 실전으로
+확인됐다.
+
+### 1. 슬래시 커맨드 + workflow.md
+
+`.claude/commands/spec.md`, `defect.md`, `verify.md` 3개와
+[`docs/workflow.md`](workflow.md)(지표 추가 8단계) 작성. 이후 모든 작업이
+이 8단계(스펙 → 예측 → 테스트 → plan → 구현 → 검증 → 기록 → `/clear`)를
+그대로 따랐다.
+
+### 2. 배당락일 T+1 규칙 — SEC 원문 확인
+
+CLAUDE.md에 상식 수준으로만 적어뒀던 규칙을 SEC 원문(Release No.
+34-99871, File No. SR-NYSE-2024-19)으로 직접 검증. SEC.gov 자체는
+자동화 요청을 rate-limit(403)으로 막아서, federalregister.gov의
+public-inspection PDF를 직접 파싱해 원문 텍스트를 확보했다. 결론:
+**2024-05-29 기준일부터 배당락일 = 기준일(같은 날)**, 그 이전은 구
+규칙(기준일 1영업일 전) 유지. [`docs/decisions/02-ex-dividend-t1-rule.md`](decisions/02-ex-dividend-t1-rule.md)
+
+### 3. 배당수익률 변화 기여도 분해 — 이 프로젝트의 핵심 지표
+
+`/spec` → 예측 → Plan Mode → 구현 → 테스트 8단계를 그대로 실행한 첫
+사례. [`docs/specs/yield-change-decomposition.md`](specs/yield-change-decomposition.md)에서:
+
+- 계산식: 대칭(평균)법 기여도 분해 — 순차법(어느 쪽을 먼저 고정했는지에
+  따라 결과가 달라지는 임의성)을 피하려고 닫힌 형태 수식을 직접 유도해
+  스펙에 못박음
+- 기준 시점: 롤링 1년 전 대비 (사용자 확인)
+- TTM 배당 구멍 처리: 실제합산·연환산 두 값 다 노출 (사용자 확인)
+- 반올림: 소수 2자리 HALF_UP, 중간 계산은 무반올림 (사용자 확인)
+
+구현 결과(`YieldChangeDecomposer` 등)는 손계산 케이스 2개(라운드 넘버 +
+이 프로젝트의 플래그십 시나리오 "배당은 그대로인데 주가만 폭락") 포함
+테스트로 검증. 사전 예측 #7~9(순차법 오적용, 0으로 나누기, actual/
+annualized 혼동)는 **전부 빗나갔다** — 스펙에 닫힌 형태 수식과 불변식을
+미리 못박아둔 덕분. 대신 예측 못 한 문제(BigDecimal `MathContext` 반올림
+경로 차이로 항등식 테스트 실패)를 실제로 겪음 —
+[`docs/ai-defects/02-mathcontext-precision-drift.md`](ai-defects/02-mathcontext-precision-drift.md).
+"스펙을 미리 쓰면 예측했던 실수가 실제로 안 일어난다"는 걸 보여준 사례.
+
+### 4. 가격·배당 데이터 영속성 계층
+
+계획을 세우던 중, 예측 #4("주식 분할 전후 배당금 단위 불일치를 무시할
+것")가 실제로 벌어지는 문제라는 걸 **실제 API 호출 2건**으로 확인했다:
+
+- Massive 배당(KO, 2012-08-13 2:1 분할): 분할 직후 배당이 정확히 절반
+  (`$0.51`→`$0.255`) — **raw, 분할 미조정**
+- Twelve Data 가격(NVDA, 2024-06-10 10:1 분할): 분할 전후 가격이 연속적
+  — **이미 split-adjusted**
+
+가격과 배당의 "주식 수 기준"이 서로 다르다는 뜻. 자세한 내용과 결정은
+[`docs/decisions/03-split-adjustment.md`](decisions/03-split-adjustment.md).
+`DividendPayment`는 raw 그대로 저장하고 `SplitEvent`를 별도 테이블로
+분리해서, 분할 조정 계산 자체는 다음 증분(TTM 집계 서비스)으로 미뤘다.
+
+`Ticker`/`PriceBar`/`SplitEvent`(`domain.market`),
+`DividendPayment`/`DividendType`(`domain.dividend`) 엔티티 + Spring Data
+JPA 리포지토리 4개. "가장 가까운 값" 가격 조회 원칙을
+`findTopByTickerAndDateLessThanEqualOrderByDateDesc` 메서드 이름 쿼리로
+구현하고 `@DataJpaTest`+H2로 검증(9개 테스트).
+
+이 과정에서 예측 #6도 실제로 적중: `@DataJpaTest`를 Boot 3.x 패키지로
+import했다가 컴파일 에러 — Boot 4.1에서 `org.springframework.boot.data
+.jpa.test.autoconfigure`로 이동한 걸 놓침.
+[`docs/ai-defects/03-datajpatest-package-moved.md`](ai-defects/03-datajpatest-package-moved.md)
+
+### 참고 — 아직 안 끝난 것
+
+- 분할 조정 계산(raw 배당 ÷ 이후 발생한 분할 비율 누적곱)과 TTM 집계
+  서비스 — `YieldChangeDecomposer`와 DB를 실제로 연결하는 부분. 다음
+  증분으로 계획만 세워둠.
+- PROJECT.md 일정상 Day 3~4는 원래 "빈 껍데기 배포"인데, 계산 로직·DB
+  설계를 먼저 진행함 — 배포를 너무 늦추면 일정표의 위험 요소("마지막
+  날 배포하려다 실패")가 그대로 재현될 수 있어 다음 판단 필요.
+- Massive ToS 미확인 상태는 Day 1과 동일하게 유지 (의도적 보류).
+
+---
+
+## Day 3 (예정)
+
+- 분할 조정 계산 + TTM 배당 집계 서비스 → `YieldChangeDecomposer` 연결
+- (판단 필요) Day 3~4 "빈 껍데기 배포"를 지금 먼저 할지, 계산 엔진을
+  더 진행할지
