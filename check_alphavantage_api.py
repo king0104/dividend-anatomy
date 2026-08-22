@@ -24,6 +24,7 @@ DIVIDENDS/SPLITS/TIME_SERIES_DAILY 필드 구조까지 확인했고, 이 스크�
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -49,16 +50,18 @@ def call_api(params, token):
     req = urllib.request.Request(url, headers={"User-Agent": "alphavantage-check/1.0"})
     try:
         with urllib.request.urlopen(req, timeout=20) as resp:
-            return resp.status, json.loads(resp.read().decode("utf-8"))
+            result = resp.status, json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         raw = e.read().decode("utf-8", errors="replace")
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError:
             parsed = raw
-        return e.code, parsed
+        result = e.code, parsed
     except urllib.error.URLError as e:
-        return None, {"error": str(e)}
+        result = None, {"error": str(e)}
+    time.sleep(15)  # 무료 플랜 초당/분당 요청 제한 대응
+    return result
 
 
 def section(title):
