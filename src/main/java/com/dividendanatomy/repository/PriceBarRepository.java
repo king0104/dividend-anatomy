@@ -14,4 +14,6 @@ public interface PriceBarRepository extends JpaRepository<PriceBar, Long> {
      * 이 날짜 이전·근처의 가장 최근값을 찾는다.
      */
     Optional<PriceBar> findTopByTickerAndDateLessThanEqualOrderByDateDesc(Ticker ticker, LocalDate date);
+
+    Optional<PriceBar> findByTickerAndDate(Ticker ticker, LocalDate date);
 }

@@ -72,4 +72,14 @@ public class PriceBar {
     public DataSource getSource() {
         return source;
     }
+
+    /**
+     * Twelve Data가 분할 발생 후 과거 종가를 재조정(back-adjust)해서 다시
+     * 내려줄 수 있으므로, 같은 (ticker, date)를 재수집했을 때 raw 배당처럼
+     * 원본을 보존할 이유가 없다 — 최신 조정값으로 갱신한다.
+     */
+    public void updateClose(BigDecimal close, DataSource source) {
+        this.close = close;
+        this.source = source;
+    }
 }
