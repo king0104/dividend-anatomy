@@ -160,8 +160,73 @@ import했다가 컴파일 에러 — Boot 4.1에서 `org.springframework.boot.da
 
 ---
 
-## Day 3 (예정)
+## Day 3 (2026-08-23)
 
-- 분할 조정 계산 + TTM 배당 집계 서비스 → `YieldChangeDecomposer` 연결
-- (판단 필요) Day 3~4 "빈 껍데기 배포"를 지금 먼저 할지, 계산 엔진을
-  더 진행할지
+커밋 4개. 계산 로직·DB·실제 외부 API가 전부 이어져서, 이 시점부터는
+"시드 데이터로 검증한 계산"이 아니라 "실제로 채워질 수 있는 데이터
+파이프라인"이 됐다.
+
+### 1. 분할 조정 TTM 집계 서비스
+
+`TtmDividendAggregationService`가 raw 배당을 `SplitEvent` 누적 비율로
+나눠 현재 주식 수 기준으로 환산하고, `YieldDecompositionService`가
+티커 조회 → 가장 가까운 가격 조회 → TTM 집계 → `YieldChangeDecomposer`
+호출을 엮는다. 실제 KO 분할 데이터로 조정 전(1.53)/후(1.02) 차이를
+테스트로 검증. 테스트 데이터에서 인접한 두 TTM 창(정확히 1년 차이)이
+경계일에 겹쳐서 `foundCount`가 예상보다 1 많이 잡히는 걸 겪음 —
+`TtmDividendSummary`의 불변식이 바로 잡아줬다
+([`docs/ai-defects/04`](ai-defects/04-ttm-window-boundary-overlap.md)).
+
+### 2. 실제 데이터 수집 어댑터 — 가격 + 분할
+
+`ingestion.twelvedata`(가격), `ingestion.massive`(분할) 패키지. `RestClient`
+기반 얇은 클라이언트 + 순수 매퍼(이번 세션에서 실제로 캡처한 NVDA
+JSON을 테스트 리소스로 그대로 사용) + 저장 서비스. 가격은 재수집 시
+갱신(Twelve Data가 분할 후 과거 종가를 재조정할 수 있어서), 분할은
+이미 있으면 건너뜀.
+
+이 과정에서 `spring-boot-starter-webmvc`에 `RestClient` 자동구성이
+딸려올 거라 가정했다가 전체 컨텍스트 테스트가 깨짐 — Boot 4.1은
+`spring-boot-starter-restclient`가 별도 스타터. **Boot 4 스타터 분리
+패턴(예측 #6)이 이걸로 세 번째 적중**
+([`docs/ai-defects/05`](ai-defects/05-restclient-starter-missing.md)).
+
+### 3. 실제 데이터 수집 어댑터 — 배당, 그리고 큰 발견
+
+배당 수집 어댑터를 만들기 직전, Massive 배당 응답을 다시 자세히 보니
+`dividend_type`, `frequency` 필드가 있었다. COST의 실제 2023-12-27
+$15 특별배당으로 확인한 결과: 정기 배당은 `dividend_type=CD,
+frequency=4`, 특별배당은 `dividend_type=SC, frequency=0`으로 이미
+구분돼서 내려온다.
+
+**이게 Day 1 예측 #2("특별배당 구분 로직이 자명하지 않음")와 CLAUDE.md가
+전제했던 "정기 주기 자체 추론" 문제를 통째로 해결한다** — 자체 분류
+알고리즘을 만들지 않고 제공자 필드를 신뢰하기로 결정
+([`docs/decisions/04-dividend-classification.md`](decisions/04-dividend-classification.md)).
+다만 `CD`/`SC` 외 코드를 만나면 조용히 REGULAR로 넘기지 않고 예외를
+던지게 해서, 제공자가 우리가 모르는 값을 주면 바로 드러나게 했다.
+
+`MassiveDividendIngestionService`가 배당 저장과 동시에
+`Ticker.regularPaymentsPerYear`를 `frequency` 필드로 갱신 — 더 이상
+수동 설정 값이 아니다.
+
+### 참고 — 아직 안 끝난 것
+
+- 컨트롤러/API 계층, 스케줄링(자동 수집 트리거) 없음 — 서비스 메서드를
+  수동으로만 호출 가능.
+- `MassiveClient`/`TwelveDataClient`의 URL/쿼리 파라미터 조립 자체는
+  자동 테스트 범위 밖(Boot 4의 RestClient 테스트 슬라이스 지원 모듈을
+  못 찾아서 매퍼/서비스 계층 검증에 집중함) — 실제 API 호출로 수동
+  검증만 함.
+- Day 3~4 "빈 껍데기 배포"는 아직 안 함 — 계산 엔진·데이터 파이프라인
+  쪽을 먼저 진행 중.
+- Massive ToS 미확인 상태 유지(의도적 보류).
+
+---
+
+## Day 4 (예정)
+
+- 컨트롤러/API 계층, 또는 Day 3~4 "빈 껍데기 배포" — 우선순위 재확인
+  필요
+- 스케줄링/실행 트리거
+- README, 지표 확대(성장률 둔화, 삭감 이력 등)
