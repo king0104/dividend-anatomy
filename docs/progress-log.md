@@ -224,9 +224,90 @@ frequency=4`, 특별배당은 `dividend_type=SC, frequency=0`으로 이미
 
 ---
 
-## Day 4 (예정)
+## Day 4 (2026-08-23)
 
-- 컨트롤러/API 계층, 또는 Day 3~4 "빈 껍데기 배포" — 우선순위 재확인
-  필요
-- 스케줄링/실행 트리거
-- README, 지표 확대(성장률 둔화, 삭감 이력 등)
+커밋 2개(REST API 컨트롤러는 Day 3 끝자락에 이미 커밋했으나 로그에
+못 남겨서 여기서 같이 정리). 이 시점부터 "로컬 H2로 검증한 파이프라인"이
+아니라 "실제 클라우드 DB + 실제 시장 데이터로 검증한 파이프라인"이 됐다.
+
+### 1. REST API 컨트롤러 (`663ea75`)
+
+`YieldDecompositionController` — `GET /api/tickers/{symbol}/yield-decomposition?asOf=`.
+`docs/specs/yield-change-decomposition.md` 3절이 못박은 "%p 단위 소수
+2자리 HALF_UP" 반올림을 실제로 적용하는 유일한 지점(`YieldDecompositionResponseMapper`).
+서비스 계층 예외(`NoSuchElementException`/`IllegalStateException`/
+`IllegalArgumentException`)를 `@RestControllerAdvice`로 404/422/400에
+매핑. 구현 중 `HttpStatus.UNPROCESSABLE_ENTITY`가 Spring Framework
+7.0에서 `UNPROCESSABLE_CONTENT`로 이름만 바뀐 것(RFC 9110 용어 정렬,
+상태 코드는 그대로 422)을 IDE 진단으로 미리 잡아서 테스트 실패 없이
+반영 — 별도 `/defect` 기록은 안 남김(실패가 실제로 안 났으므로).
+
+### 2. OCI MySQL Always Free — 실제 데이터를 어디에 담을지
+
+로컬 H2/MySQL 대신 OCI(Oracle Cloud Infrastructure) 무료 티어 DB를
+쓰기로 함. 진행하며 나온 판단들:
+
+- **안전장치 논의 → 사용자가 명시적으로 보류.** 처음엔 "AI가 기존
+  k3s 클러스터를 절대 건드리지 않고 과금도 안 나게" 하려고 별도 IAM
+  사용자/그룹/정책으로 완전히 격리하는 방안을 검토했다(컴파트먼트 분리,
+  최소 권한 정책 등). 하지만 실제로 만들기 시작하려는 순간 사용자가
+  "안전장치 만들지 말고 그냥 그대로 진행하자, 빨리 만드는 게 중요하다"고
+  결정 — 기존 Administrators 키로 곧바로 진행. **이건 의도적으로 채택한
+  리스크지, 잊어버린 게 아니다**: 지금 이 세션의 모든 OCI 조작은 관리자
+  권한 키로 이뤄졌고, 리소스 삭제/변경을 막는 기술적 장치는 없다. 나중에
+  진짜 필요해지면(예: 다른 사람과 같이 쓰게 되면) 별도 IAM 사용자를
+  만드는 걸 다시 고려해야 한다.
+- **VCN은 기존 k3s와 공유.** 새 VCN을 격리해서 만드는 대신, k3s가 이미
+  쓰고 있는 `vcn-20260226`의 private subnet(`10.0.2.0/24`)을 그대로
+  재사용 — 나중에 이 프로젝트를 같은 k3s에 배포하게 되면 네트워크가
+  이미 붙어있어서 더 간단해진다는 판단.
+- **MySQL DB System은 private subnet에만 존재, public IP 없음** (OCI
+  MySQL DB System의 일반적 제약 — 확인 완료). 접근은 **OCI Bastion
+  Service**의 세션 기반 SSH 포트포워딩으로만: 로컬 `13306` → 터널 →
+  DB `10.0.2.201:3306`. Bastion 자체는 상시 VM이 아니라 관리형 서비스라
+  Always Free Ampere A1 컴퓨트 할당량(이미 k3s 인스턴스 3대가 다 씀)을
+  안 건드리고, 세션은 최대 3시간까지 무료.
+- 보안 목록에는 `0.0.0.0/0`이 아니라 **VCN 내부(`10.0.0.0/16`)로만**
+  3306 인바운드 규칙 추가 — 기존 k3s 6443 규칙과 같은 패턴.
+- MySQL 관리자 비밀번호는 OCI 쪽 검증 규칙(8~32자, 대/소문자·숫자·특수문자
+  각 1개 이상)을 몰라서 2번 실패(영숫자만, 그다음 특수문자 빠뜨림)한
+  뒤 `oci mysql db-system create --help`에서 정확한 규칙을 찾아
+  해결했다.
+
+### 3. 실제 티커로 전체 파이프라인 검증 — KO(코카콜라)
+
+`IngestionRunner`(`--ingest.ticker=SYMBOL:이름:통화`가 있을 때만 동작하는
+`ApplicationRunner`, 임시 수동 트리거)로 가격(Twelve Data)·분할·배당
+(Massive)을 실제로 수집해 OCI MySQL에 저장:
+
+| 항목 | 결과 |
+|---|---|
+| 가격(3년치) | 752건 |
+| 분할 | 1건 |
+| 배당 | 94건, `regularPaymentsPerYear` 자동 4로 설정 |
+
+이후 `GET /api/tickers/KO/yield-decomposition?asOf=2026-08-22`를 실제로
+호출해서 **로컬 목데이터가 아니라 실제 클라우드 DB + 실제 시장 데이터로
+계산된 결과**(가격 기여도 -0.67%p, 배당 기여도 +0.11%p)를 확인함으로써
+이 프로젝트의 핵심 파이프라인(수집 → DB → TTM 집계 → 기여도 분해 →
+REST API)이 처음부터 끝까지 실제로 동작한다는 걸 증명했다.
+
+**작은 버그 하나**: `./gradlew bootRun --args="--ingest.ticker=KO:The
+Coca-Cola Company:USD"`처럼 공백이 든 문자열을 넘기면 Gradle이 `--args`
+값을 공백 기준으로 다시 쪼개버려서 `name` 필드가 "The"로 잘려 저장됨
+(금액 계산과 무관한 필드라 지표 자체엔 영향 없음). SQL로 직접 고쳤고,
+다음엔 공백 없는 값을 쓰거나 다른 전달 방식을 써야 한다는 걸 기록해둠.
+
+### 참고 — 아직 안 끝난 것
+
+- IAM 격리/예산 알림 같은 실제 과금·오조작 방지 장치는 **의도적으로
+  안 만듦** — 위 2번 참고. 여러 명이 같이 쓰게 되거나 장기 운영으로
+  넘어가면 다시 검토해야 함.
+- `docs/decisions/`에 이번 OCI 인프라 판단(VCN 공유, Bastion, 안전장치
+  보류)을 정식 문서로 남기지는 않음 — 지금은 이 진행 기록이 유일한
+  기록. 나중에 프로젝트가 커지면 별도 decision 문서로 승격 고려.
+- 로컬 SSH 터널 + `gradlew bootRun`은 이 세션이 끝나면 계속 떠 있지
+  않음 — 다음에 다시 쓰려면 Bastion 세션을 새로 만들어야 함(세션은
+  최대 3시간).
+- 스케줄링(자동 수집), README, 지표 확대(성장률 둔화, 삭감 이력 등)는
+  여전히 안 함.
