@@ -28,6 +28,16 @@
 - **특별배당은 정기 배당과 분리한다.** 지급 이력에서 정기 주기를 추론하고,
   벗어나는 지급은 특별배당 후보로 분류한다 — 자동으로 합산하지 않는다.
 
+## 기술 스택 버전
+
+- **Spring Boot 4.1 기준.** Spring Boot 3.x는 2026-06-30 오픈소스 지원이
+  종료됐으므로 3.x 스니펫을 그대로 베끼지 않는다. 특히: 스타터가
+  `spring-boot-starter-web`이 아니라 `spring-boot-starter-webmvc`처럼 기술별로
+  쪼개졌고, Jackson이 2에서 3으로 바뀌었고(어노테이션 패키지 확인), Spring
+  Security 7 기본값이 3.x와 다르고, `PropertyMapper`가 기본적으로 null 값을
+  매핑하지 않는다(필요하면 `.always()` 명시). 학습 데이터 대부분이 3.x
+  시절이라 AI가 옛 방식으로 생성할 가능성이 높은 지점이다.
+
 ## 데이터
 
 - 배당·분할 이력 = Massive, 주가 시계열 = Twelve Data (`docs/decisions/01-data-source.md`).
