@@ -1,0 +1,27 @@
+# 환경변수
+.env
+.env.*
+!.env.example
+
+# Java / Gradle
+build/
+.gradle/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# 로그
+*.log
+
+# Python (API 검증 스크립트용)
+__pycache__/
+*.pyc
+venv/
