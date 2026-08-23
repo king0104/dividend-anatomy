@@ -4,6 +4,7 @@ import com.dividendanatomy.domain.dividend.DividendPayment;
 import com.dividendanatomy.domain.dividend.DividendType;
 import com.dividendanatomy.domain.market.SplitEvent;
 import com.dividendanatomy.domain.market.Ticker;
+import com.dividendanatomy.domain.split.SplitAdjustmentCalculator;
 import com.dividendanatomy.domain.yield.TtmDividendSummary;
 import com.dividendanatomy.repository.DividendPaymentRepository;
 import com.dividendanatomy.repository.SplitEventRepository;
@@ -64,17 +65,14 @@ public class TtmDividendAggregationService {
         List<SplitEvent> laterSplits = splitEventRepository
                 .findByTickerAndExecutionDateAfterOrderByExecutionDateAsc(ticker, payment.getExDividendDate());
 
-        if (laterSplits.isEmpty()) {
-            return payment.getAmount();
+        if (!laterSplits.isEmpty()) {
+            BigDecimal cumulativeRatio = laterSplits.stream()
+                    .map(SplitEvent::getRatio)
+                    .reduce(BigDecimal.ONE, (a, b) -> a.multiply(b, MC));
+            log.info("배당 금액 분할 조정 적용: ticker={} exDividendDate={} cumulativeRatio={}",
+                    ticker.getSymbol(), payment.getExDividendDate(), cumulativeRatio);
         }
 
-        BigDecimal cumulativeRatio = BigDecimal.ONE;
-        for (SplitEvent split : laterSplits) {
-            cumulativeRatio = cumulativeRatio.multiply(split.getRatio(), MC);
-        }
-        log.info("배당 금액 분할 조정 적용: ticker={} exDividendDate={} cumulativeRatio={}",
-                ticker.getSymbol(), payment.getExDividendDate(), cumulativeRatio);
-
-        return payment.getAmount().divide(cumulativeRatio, MC);
+        return SplitAdjustmentCalculator.adjustedAmount(laterSplits, payment.getAmount());
     }
 }
