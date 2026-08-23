@@ -411,3 +411,45 @@ CAGR vs 더 단순한 대체 지표(연평균 성장률)" 갈림길을 먼저 �
   자동 재연결 장치 없음(Day 4에서 이미 알고 있던 제약이 이번에
   실제로 발생).
 - 화면(목록/상세/차트), README, 이상치 제거 지표는 여전히 안 함.
+
+---
+
+## Day 6 (2026-08-23)
+
+커밋 2개. PROJECT.md 5.2절의 배당 지속성 지표 3개(성장률 둔화·삭감
+이력·변동성)를 전부 계산→DB→API까지 완성했다.
+
+### 배당 변동성 (`e5ef8cb`, `b5f613f`)
+
+최근 10년치 연간 배당 증감률(10개)의 **표본** 표준편차(`N-1`로 나눔,
+성장률 둔화의 10년 장기 구간과 일관성 맞춰 표본 기간도 10년으로
+확정 — 둘 다 사용자 확인). 제곱근은 [[dividend-growth-deceleration]]의
+`NthRootCalculator`(뉴턴-랩슨 직접 구현)와 달리, 정수 제곱근은 Java 9+
+표준 라이브러리 `BigDecimal.sqrt(MathContext)`가 이미 있어서 그대로
+재사용 — 불필요한 재구현을 피함.
+
+- `DividendVolatilityCalculator`(순수) + `DividendVolatilityService`(DB
+  연결, 연도별 TTM 지점 11개 조회) + `VolatilityController`
+  (`GET /api/tickers/{symbol}/volatility?asOf=`).
+- 예측 #16~18(11개 지점 필요한데 10개만 쓸 것, 모집단 공식(N)으로
+  잘못 나눌 것, `BigDecimal.sqrt()` 대신 `double`/`NthRootCalculator`
+  오용) **전부 틀림**.
+- 예측 못 한 문제 하나: 증감률이 전부 동일한 케이스는 이론상 분산이
+  정확히 0이어야 하는데, `D_i`를 반복 곱셈으로 만드는 과정에서
+  `MathContext.DECIMAL64` 반올림이 16번째 유효숫자에서 흔들려 완전한
+  0이 아닌 극소값이 나옴 — `docs/ai-defects/02-mathcontext-precision-drift.md`와
+  **같은 현상이 다른 지표에서 재발**. 새 defect 문서를 따로 만들진
+  않고 허용오차 비교로 수정(이미 알려진 패턴의 반복이라 판단).
+- 실데이터 검증(워크플로우 7단계) 중 Bastion 세션 자체는 서버 쪽에
+  살아있었지만 로컬 SSH 프로세스만 끊겨 있던 걸 발견 — 터널 재연결만으로
+  복구(세션 재생성까지는 불필요했음, Day 5의 경우보다 가벼운 장애).
+  실제 KO 데이터: `meanGrowthRate≈4.35%`, `standardDeviation≈1.19%p` —
+  변동성이 낮게 나옴(안정적인 배당주다운 결과).
+
+### 참고 — 아직 안 끝난 것
+
+- PROJECT.md 5.2절 배당 지속성 지표 3개 전부 완성 — 다음은 5.3절
+  이상치 제거, 또는 Day 10~12 화면 작업 중 선택 필요.
+- OCI Bastion 세션·SSH 터널은 여전히 수동 관리 — 로컬 개발 환경을
+  재시작할 때마다 살아있는지 먼저 확인해야 함.
+- 화면(목록/상세/차트), README는 여전히 안 함.
