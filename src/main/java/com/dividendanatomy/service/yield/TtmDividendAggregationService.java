@@ -7,6 +7,8 @@ import com.dividendanatomy.domain.market.Ticker;
 import com.dividendanatomy.domain.yield.TtmDividendSummary;
 import com.dividendanatomy.repository.DividendPaymentRepository;
 import com.dividendanatomy.repository.SplitEventRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -22,6 +24,7 @@ import java.util.List;
 @Service
 public class TtmDividendAggregationService {
 
+    private static final Logger log = LoggerFactory.getLogger(TtmDividendAggregationService.class);
     private static final MathContext MC = MathContext.DECIMAL64;
 
     private final DividendPaymentRepository dividendPaymentRepository;
@@ -45,6 +48,10 @@ public class TtmDividendAggregationService {
         }
 
         int foundCount = payments.size();
+        if (foundCount < expectedCount) {
+            log.warn("TTM 창 불완전: ticker={} windowEnd={} foundCount={} expectedCount={}",
+                    ticker.getSymbol(), windowEnd, foundCount, expectedCount);
+        }
         BigDecimal annualizedSum = foundCount == 0
                 ? null
                 : actualSum.multiply(BigDecimal.valueOf(expectedCount), MC)
@@ -57,10 +64,16 @@ public class TtmDividendAggregationService {
         List<SplitEvent> laterSplits = splitEventRepository
                 .findByTickerAndExecutionDateAfterOrderByExecutionDateAsc(ticker, payment.getExDividendDate());
 
+        if (laterSplits.isEmpty()) {
+            return payment.getAmount();
+        }
+
         BigDecimal cumulativeRatio = BigDecimal.ONE;
         for (SplitEvent split : laterSplits) {
             cumulativeRatio = cumulativeRatio.multiply(split.getRatio(), MC);
         }
+        log.info("배당 금액 분할 조정 적용: ticker={} exDividendDate={} cumulativeRatio={}",
+                ticker.getSymbol(), payment.getExDividendDate(), cumulativeRatio);
 
         return payment.getAmount().divide(cumulativeRatio, MC);
     }

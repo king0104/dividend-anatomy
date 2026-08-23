@@ -4,6 +4,8 @@ import com.dividendanatomy.domain.dividend.DividendPayment;
 import com.dividendanatomy.domain.market.Ticker;
 import com.dividendanatomy.repository.DividendPaymentRepository;
 import com.dividendanatomy.repository.TickerRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,8 @@ import java.util.List;
  */
 @Service
 public class MassiveDividendIngestionService {
+
+    private static final Logger log = LoggerFactory.getLogger(MassiveDividendIngestionService.class);
 
     private final MassiveClient massiveClient;
     private final DividendPaymentRepository dividendPaymentRepository;
@@ -49,6 +53,9 @@ public class MassiveDividendIngestionService {
                     .isPresent();
             if (!alreadyExists) {
                 DividendPayment payment = MassiveDividendMapper.toDividendPayment(dividend, ticker);
+                if (payment.getPayDate() == null) {
+                    log.warn("배당 지급일(payDate) 누락: ticker={} exDividendDate={}", ticker.getSymbol(), exDate);
+                }
                 dividendPaymentRepository.save(payment);
                 savedCount++;
             }

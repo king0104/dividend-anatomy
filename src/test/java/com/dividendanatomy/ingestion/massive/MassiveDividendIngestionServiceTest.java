@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DataJpaTest
@@ -57,6 +58,24 @@ class MassiveDividendIngestionServiceTest {
                 .findByTickerAndExDividendDate(cost, LocalDate.parse("2023-12-27"));
         assertTrue(special.isPresent());
         assertEquals(DividendType.SPECIAL, special.get().getType());
+    }
+
+    @Test
+    void savesPaymentEvenWhenPayDateIsMissing() {
+        Ticker young = tickerRepository.save(new Ticker("YOUNG3", "Young Co 3", "USD"));
+        MassiveDividendIngestionService service = new MassiveDividendIngestionService(
+                stubClient(List.of(
+                        new MassiveDividend(new BigDecimal("0.25"), "CD", "2026-06-15", "2026-06-15", null, 4, "YOUNG3")
+                )),
+                dividendPaymentRepository, tickerRepository);
+
+        int savedCount = service.ingest(young);
+
+        assertEquals(1, savedCount);
+        DividendPayment saved = dividendPaymentRepository
+                .findByTickerAndExDividendDate(young, LocalDate.parse("2026-06-15"))
+                .orElseThrow();
+        assertNull(saved.getPayDate());
     }
 
     @Test
