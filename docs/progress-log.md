@@ -453,3 +453,49 @@ CAGR vs 더 단순한 대체 지표(연평균 성장률)" 갈림길을 먼저 �
 - OCI Bastion 세션·SSH 터널은 여전히 수동 관리 — 로컬 개발 환경을
   재시작할 때마다 살아있는지 먼저 확인해야 함.
 - 화면(목록/상세/차트), README는 여전히 안 함.
+
+## Day 7 (2026-08-23)
+
+커밋 2개(`e773c7f`, `de09163`). PROJECT.md 5.3절 "이상치 제거"의
+남은 범위를 처리했다 — 원래 계획했던 "정기 배당 주기를 지급 이력에서
+직접 추론하는 알고리즘"은 이미 `docs/decisions/04-dividend-classification.md`로
+해소돼 있었다는 걸 이번에 다시 확인했다(Massive의 `dividend_type`/
+`frequency` 필드를 그대로 신뢰하기로 결정, `MassiveDividendMapper`가
+이미 구현 중). 그래서 이번 작업은 "이미 분류된 데이터 중 뭐가 왜
+제외됐는지 보여주는" 순수 조회 기능(특별배당 내역 표시)으로 범위를
+좁혀서 진행했다 — 계산 로직이 없는 첫 지표.
+
+### 특별배당 내역 표시 (`e773c7f`, `de09163`)
+
+- `DisclosureEntry`/`SpecialDividendDisclosure`(순수, 계산 없음) +
+  `SpecialDividendDisclosureService`(DB 조회) +
+  `SpecialDividendDisclosureController`
+  (`GET /api/tickers/{symbol}/special-dividends`, `asOf` 파라미터 없음
+  — 전체 이력을 한 번에 보여주는 목록형 지표라 기준 시점 개념이 없음).
+- 사용자 확인 두 가지: (1) 5.3절 남은 범위를 "특별배당 내역 API만
+  추가"로 한정(분류 재구현이나 5.4절로 건너뛰는 대신), (2) "제외
+  근거"는 스키마 변경(`rawProviderType` 컬럼 추가) 없이 고정 문구로
+  표시.
+- 예측 #19("단순 조회"라 착각해서 raw amount 대신
+  `TtmDividendAggregationService`의 분할조정 금액을 재활용할 것)
+  **틀림** — `DisclosureEntry.from()`이 `TtmDividendAggregationService`를
+  아예 참조하지 않고 raw `amount`만 담도록 구현, COST의 실제 $15
+  특별배당을 손계산 케이스로 검증.
+- 드라이브바이 수정: `Ticker.regularPaymentsPerYear`의 자바독이
+  "수동으로 채워 넣는 값"이라고 돼 있었는데 실제로는 이미
+  `MassiveDividendIngestionService`가 자동으로 채우고 있어서(결정
+  04) 문서-코드 불일치를 발견 — 로직 변경 없이 주석만 정정.
+- 실데이터 검증(워크플로우 7단계): KO 94건 전부 REGULAR로 정확히
+  조회됨(`specialCount=0`, KO는 실제로 특별배당 이력이 없는 종목이라
+  기대한 결과). COST는 이 DB에 실제로 적재돼 있지 않아 SPECIAL 경로는
+  실데이터로 재확인은 못 했고, 순수 단위 테스트의 COST 손계산 케이스로
+  대체 검증.
+
+### 참고 — 아직 안 끝난 것
+
+- 이걸로 PROJECT.md 5.3절도 사실상 마무리(분류는 결정 04, 표시는
+  이번 작업). 다음은 5.4절(시계열 정합성 검증) 또는 Day 10~12 화면
+  작업 중 선택 필요 — 아직 미정.
+- OCI Bastion 세션·SSH 터널은 여전히 수동 관리. 이번엔 세션 자체는
+  살아있어서(Day 6과 동일 패턴) 터널 재연결만으로 복구됨.
+- 화면(목록/상세/차트), README는 여전히 안 함.
