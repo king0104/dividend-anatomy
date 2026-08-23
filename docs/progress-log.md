@@ -578,3 +578,57 @@ CAGR vs 더 단순한 대체 지표(연평균 성장률)" 갈림길을 먼저 �
   forex 페어를 실제로 제공하는지부터 라이브 검증 필요). 다음 세션에서
   바로 이어서 진행.
 - 화면(목록/상세/차트), README는 여전히 안 함.
+
+## Day 10 (2026-08-23)
+
+커밋 3개(`3bb4287`, `b740a40`, `afad317`). PROJECT.md 5.6절(환율) —
+사용자가 "남은 걸 전부 다 해보자"고 지시한 뒤 이어서 진행한 두
+번째 항목. 이걸로 5절(계산 엔진) 전체가 마무리됐다.
+
+### 환율 데이터 파이프라인 확보 (`docs/decisions/07-fx-data-source.md`)
+
+구현 전에 먼저 실제 API 호출로 검증: Twelve Data가 forex 페어를
+가격 조회와 **완전히 동일한 응답 스키마**로 지원한다는 걸 확인해서,
+기존 `TwelveDataClient`/`TwelveDataTimeSeriesResponse`/`TwelveDataBar`를
+코드 변경 없이 그대로 재사용했다 — 새 제공자 계약이나 ToS 재검토가
+필요 없었다. 동시에 두 가지 한계도 실제 호출로 확인: (1) USD/KRW
+일별 데이터는 **2007-10-11부터만 존재**(KO 배당 이력은 2003년부터),
+(2) 한 번 호출에 **최대 5000건** 상한.
+
+### 환율 환산 실수령액 (`3bb4287`, `b740a40`, `afad317`)
+
+- 데이터 계층: `ExchangeRate`(엔티티, `PriceBar` 템플릿) +
+  `ExchangeRateRepository`("가장 가까운 값" 조회, `PriceBarRepository`와
+  동일 패턴) + `TwelveDataFxMapper`/`TwelveDataFxIngestionService`(과거
+  환율은 재조정 안 되므로 이미 있으면 skip — Massive 배당 수집과
+  동일한 멱등성).
+- 변환 계층: `FxConversionStatus`(`CONVERTED`/`PAY_DATE_MISSING`/`NO_RATE_DATA_AVAILABLE`)
+  + `KrwConvertedEntry`(순수) + `KrwDividendConversionService`(
+  [[us-withholding-tax]]의 `NetDividendSummary`를 입력받아 `payDate`
+  기준 환율을 곱함) + `KrwDividendConversionController`
+  (`GET /api/tickers/{symbol}/krw-dividends`).
+- 환율 적용 시점을 **`payDate`(지급일)로 고정**(CLAUDE.md), `payDate`
+  누락과 환율 데이터 없음을 서로 다른 상태로 구분 노출 — 예측 #22
+  (`exDividendDate`로 조용히 대체할 것), #23(두 실패 상태를 하나로
+  뭉뚱그릴 것) **둘 다 틀림**.
+- KRW는 정수(scale=0) 반올림 — USD의 소수 2자리 관례를 그대로
+  가져오지 않고 통화별 관례를 별도로 판단(스펙 3절).
+- 구현 중 실제로 걸림돌 하나: `exDividendDate→payDate` 맵을
+  `Collectors.toMap()`으로 만들려다가, `payDate`가 null일 수 있다는
+  걸 그 메서드가 내부적으로 `NullPointerException`을 던진다는 사실과
+  같이 떠올리지 못할 뻔함 — 구현 중 발견해서 일반 `HashMap` 루프로
+  교체(커밋 `b740a40`의 `Catch:` 줄).
+- 실데이터 검증(워크플로우 7단계): 임시 `FxIngestRunner`(실행 후 삭제)로
+  실제 USD/KRW 환율 5000건(2007-10-11~2026-08-22, 2회 분할 호출) 백필.
+  KO 94건 조회 결과 — 2007-10-11 이전 18건 전부
+  `NO_RATE_DATA_AVAILABLE`(스펙이 정확히 예측한 대로), 나머지 76건
+  `CONVERTED`. 최근 배당(`0.53 USD`, 세후 `0.45 USD`)이 환율
+  `1386.16314`로 `624원`(세후)으로 정확히 환산됨.
+
+### 참고 — 아직 안 끝난 것
+
+- 이걸로 PROJECT.md 5절(계산 엔진) 전체 — 기여도 분해, 지속성 지표
+  3개, 이상치 제거, 시계열 정합성 로그, 세금, 환율 — 가 계산→DB→API
+  까지 전부 마무리됐다.
+- 다음은 Day 10-12 화면 작업. 화면(목록/상세/차트), README, 자동
+  수집 스케줄링, OCI IAM 락다운은 여전히 안 함(대부분 의도적 보류).
