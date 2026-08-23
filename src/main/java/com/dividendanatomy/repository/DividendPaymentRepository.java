@@ -22,4 +22,6 @@ public interface DividendPaymentRepository extends JpaRepository<DividendPayment
     Optional<DividendPayment> findByTickerAndExDividendDate(Ticker ticker, LocalDate exDividendDate);
 
     List<DividendPayment> findByTickerAndTypeOrderByExDividendDateAsc(Ticker ticker, DividendType type);
+
+    List<DividendPayment> findByTickerOrderByExDividendDateAsc(Ticker ticker);
 }

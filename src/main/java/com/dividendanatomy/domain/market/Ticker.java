@@ -26,9 +26,9 @@ public class Ticker {
     private String currency;
 
     /**
-     * 연간 정기 배당 지급 횟수 (분기=4, 월배당=12 ...). 지급 이력에서
-     * 자동으로 추론하는 로직은 아직 없어서, 지금은 수동으로 채워 넣는
-     * 값으로 취급한다 (docs/specs/yield-change-decomposition.md 0절).
+     * 연간 정기 배당 지급 횟수 (분기=4, 월배당=12 ...). Massive 응답의
+     * `frequency` 필드에서 배당 수집 시 자동으로 채워진다
+     * (docs/decisions/04-dividend-classification.md).
      */
     @Column(name = "regular_payments_per_year")
     private Integer regularPaymentsPerYear;
