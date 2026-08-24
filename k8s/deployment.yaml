@@ -13,8 +13,6 @@ spec:
       labels:
         app: dividend-anatomy
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: worker-2
       containers:
         - name: dividend-anatomy
           image: docker.io/library/dividend-anatomy:latest
