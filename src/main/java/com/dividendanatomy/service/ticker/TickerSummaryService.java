@@ -97,15 +97,13 @@ public class TickerSummaryService {
     private DividendIncreaseStreakResult calculateStreak(Ticker ticker, int expectedCount, int currentYear) {
         List<DividendPayment> regularPayments =
                 dividendPaymentRepository.findByTickerAndTypeOrderByExDividendDateAsc(ticker, DividendType.REGULAR);
-        List<SplitEvent> allSplits = splitEventRepository.findByTickerOrderByExecutionDateAsc(ticker);
 
         Map<Integer, BigDecimal> annualTotalsByYear = new HashMap<>();
         Map<Integer, Integer> paymentCountByYear = new HashMap<>();
         for (DividendPayment payment : regularPayments) {
             int year = payment.getExDividendDate().getYear();
-            List<SplitEvent> laterSplits = allSplits.stream()
-                    .filter(s -> s.getExecutionDate().isAfter(payment.getExDividendDate()))
-                    .toList();
+            List<SplitEvent> laterSplits = splitEventRepository
+                    .findByTickerAndExecutionDateAfterOrderByExecutionDateAsc(ticker, payment.getExDividendDate());
             BigDecimal adjusted = SplitAdjustmentCalculator.adjustedAmount(laterSplits, payment.getAmount());
 
             annualTotalsByYear.merge(year, adjusted, BigDecimal::add);
