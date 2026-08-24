@@ -53,6 +53,8 @@ async function calculate() {
     const bucketIndex = new Map(buckets.map((b, idx) => [bucketKey(b.year, b.month), idx]));
     const earliestAllowed = new Date(buckets[0].year, buckets[0].month - 1, 1);
 
+    const skipped = []; // 환율 데이터 없음 등으로 합계에서 빠진 건 — 화면에 표시해야 함(CLAUDE.md: 조용히 넘어가지 않는다)
+
     for (const { symbol, qty } of quantities) {
         try {
             const entries = await fetchEntriesForTicker(symbol, currencyMode);
@@ -68,7 +70,8 @@ async function calculate() {
                 }
                 const amount = pickAmount(entry, taxMode, currencyMode);
                 if (amount == null) {
-                    continue; // 환율 데이터 없음 등으로 계산 불가한 건은 건너뜀(조용히 합산 왜곡 방지)
+                    skipped.push({ symbol, exDividendDate: entry.exDividendDate, status: entry.status });
+                    continue;
                 }
                 const contribution = amount * qty;
                 buckets[idx].total += contribution;
@@ -80,6 +83,25 @@ async function calculate() {
     }
 
     renderChart(buckets, currencyMode);
+    renderDataQualityNotice(skipped);
+}
+
+function renderDataQualityNotice(skipped) {
+    const el = document.getElementById("data-quality-notice");
+    if (skipped.length === 0) {
+        el.style.display = "none";
+        el.innerHTML = "";
+        return;
+    }
+    const items = skipped
+        .map((s) => `<li>${s.symbol} — ${s.exDividendDate} (${s.status ?? "계산 불가"})</li>`)
+        .join("");
+    el.style.display = "block";
+    el.innerHTML = `
+        <span class="badge badge-incomplete">데이터 불완전</span>
+        <span class="muted">아래 ${skipped.length}건은 데이터가 부족해 합계에서 제외됐습니다:</span>
+        <ul class="muted">${items}</ul>
+    `;
 }
 
 async function fetchEntriesForTicker(symbol, currencyMode) {
