@@ -751,3 +751,70 @@ vanilla JS로 확정: 빌드 도구 없이 `src/main/resources/static/`에
   안에서 계산된 값"이라는 안내를 화면에 아직 안 붙임(Day 11에서
   남긴 과제, 여전히 미해결 — 목록 화면에 툴팁 정도로 추가할지 검토
   필요).
+
+## Day 13 (2026-08-24)
+
+커밋 4개(`4edef80`, `ce02ef1`, `569ea8a`, `a52683a`). PROJECT.md
+남은 항목 전부 마무리: 4.4절 목표 역산, Day 1 예측 회고, README,
+배포.
+
+### 목표 역산 섹션 (`4edef80`)
+
+4.4절 "목표 배당 소득 역산" — 이미 서버가 계산해서 내려주는
+현재가·시가배당률·최신 환율에 대해 순수 클라이언트 스칼라 연산
+(`requiredShares`, `requiredPrincipalKrw`)만 추가. 새 서버 계산이
+아니라서 /spec 사이클 없이 바로 구현.
+
+### Day 1 예측 회고 (`ce02ef1`)
+
+세션 시작 시점(Day 1)에 남겨둔 예측 #1~5 결과 칸을 이 시점에
+채움 — 전부 "틀림"(AI가 실제로 그 실수를 하지 않음). 유일한
+"맞음"은 #6(Spring Boot 4.1인데 3.x 시절 API를 3번 반복 생성)으로
+그대로 유지.
+
+### README (`569ea8a`)
+
+PROJECT.md 9.E 구성 그대로: 무엇을 만들었나(스크린샷 2장), 왜
+만들었나, 핵심 계산 로직, AI 통제 3줄, 배운 것, AI 판단 기록표.
+
+### 배포 (`a52683a`)
+
+PROJECT.md 마지막 항목. 새 OCI 인스턴스를 띄우는 대신(Always Free
+A1.Flex 할당량 4/4 OCPU로 이미 꽉 차 있음을 `oci limits`로 확인)
+사용자가 예전에 만들어둔 개인 k3s 클러스터(master + worker-1/2,
+전부 Ampere ARM64)에 새 워크로드로 배포하기로 결정.
+
+- 레지스트리 없이 이미지 사이드로드: 로컬(Apple Silicon, arm64)에서
+  `docker build --platform linux/arm64` → `docker save` → 3개
+  노드에 scp → 각 노드에서 `k3s ctr images import` →
+  `imagePullPolicy: Never`.
+- k3s 노드와 dividend-anatomy MySQL이 같은 VCN(10.0.0.0/16)에
+  있고, MySQL 보안 목록이 이미 VCN 전체에 3306을 열어둔 상태라
+  Bastion 터널 없이 pod에서 DB로 직접 접속 가능 — 실제로 pod
+  로그에서 HikariCP가 `10.0.2.201:3306`에 곧장 연결 성공한 것으로
+  확인.
+- OCI 보안 목록에 30081(NodePort) 규칙을 기존 30080 규칙과 같은
+  형태로 **추가만** 함(기존 규칙 삭제/수정 없음).
+
+**Catch**: 보안 목록에 30081을 열었는데도 master(`144.24.86.105`)와
+worker-1 IP로는 계속 연결이 안 됨. 원인을 파고드니 이 클러스터의
+flannel VXLAN 크로스노드 라우팅 자체가 깨져 있었다 —
+`ip -d link show flannel.1`이 세그폴트로 죽고, master에서 pod IP로
+직접 curl해도 타임아웃. 새로 생긴 문제가 아니라 **기존에도 있던
+클러스터 상태**라는 걸, 이미 떠 있던 `nginx-test`(30080)도 master
+IP로만 응답하고 다른 노드 IP로는 똑같이 안 되는 걸 재현해서 확인.
+클러스터 네트워킹 자체를 고치는 건 이번 배포 범위 밖이라고 판단—
+대신 `deployment.yaml`에 `nodeSelector: kubernetes.io/hostname:
+worker-2`로 pod를 pod가 이미 뜬 노드에 고정해서, 재배포로 노드가
+바뀌어 공개 엔드포인트가 조용히 끊기는 걸 방지.
+- 최종 검증: `http://134.185.97.175:30081/`을 헤드리스 Chrome으로
+  스크린샷 확인 — 실제 DB에서 가져온 KO/JNJ/PG/XOM/MMM 5종목이
+  정상 렌더링됨.
+- TLS 없음(HTTP 평문) — 기존 클러스터 워크로드(`nginx-test`)와
+  동일 수준, 포트폴리오용 데모 목적이라 의도적으로 범위 밖.
+
+### 참고 — PROJECT.md 체크리스트 전체 완료
+
+5절 계산 엔진, 4.1~4.4절 화면, README, 배포까지 PROJECT.md에 남아
+있던 항목이 이 시점에 전부 끝남. 남은 건 화면 툴팁 같은 사소한
+개선 과제(위 목록 참고)뿐.
