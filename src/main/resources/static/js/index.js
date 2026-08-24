@@ -53,11 +53,13 @@ function formatYieldCell(t) {
     return html;
 }
 
+const STREAK_COVERAGE_NOTE = "이 숫자는 회사의 실제 연속 배당 증가 역사가 아니라, 우리 DB가 보유한 배당 이력 범위 안에서 계산된 값입니다. DB 커버리지가 특정 연도부터 시작하는 종목은 실제보다 짧게 나올 수 있습니다.";
+
 function formatStreakCell(t) {
     if (t.streakStatus === "INSUFFICIENT_DATA" || t.streakYears == null) {
         return '<span class="muted">판정 불가</span>';
     }
-    return `${t.streakYears}년`;
+    return `<span title="${STREAK_COVERAGE_NOTE}">${t.streakYears}년 ⓘ</span>`;
 }
 
 loadTickers();
