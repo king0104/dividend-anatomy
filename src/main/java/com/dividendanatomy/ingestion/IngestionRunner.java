@@ -17,6 +17,10 @@ import java.time.LocalDate;
  * 실제 티커 데이터를 한 번 수집해 넣기 위한 수동 트리거.
  * {@code --ingest.ticker=SYMBOL:종목명:통화} 인자가 있을 때만 동작한다
  * (예: {@code --ingest.ticker=KO:The Coca-Cola Company:USD}).
+ * 가격 수집 기간은 {@code --ingest.priceYears=N}으로 조절 가능하고
+ * 지정하지 않으면 기존과 동일하게 3년이다. 타임머신 시뮬레이터
+ * 브랜드 풀처럼 더 긴 과거 가격이 필요할 때 20 등으로 늘려서 쓴다 —
+ * Twelve Data 무료 플랜은 최소 20년까지 실키로 확인됨(docs/decisions/13).
  * 화면/스케줄러가 아직 없는 지금 단계에서만 쓰는 임시 진입점.
  */
 @Component
@@ -30,6 +34,9 @@ public class IngestionRunner implements ApplicationRunner {
 
     @Value("${ingest.ticker}")
     private String ingestSpec;
+
+    @Value("${ingest.priceYears:3}")
+    private int priceYears;
 
     public IngestionRunner(
             TickerRepository tickerRepository,
@@ -53,7 +60,7 @@ public class IngestionRunner implements ApplicationRunner {
                 .orElseGet(() -> tickerRepository.save(new Ticker(symbol, name, currency)));
 
         LocalDate endDate = LocalDate.now();
-        LocalDate startDate = endDate.minusYears(3);
+        LocalDate startDate = endDate.minusYears(priceYears);
 
         System.out.println("[ingest] " + symbol + " 가격 수집 시작 (" + startDate + " ~ " + endDate + ")");
         int priceCount = priceIngestionService.ingest(ticker, startDate, endDate);
