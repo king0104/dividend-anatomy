@@ -59,6 +59,24 @@ GitHub Actions 시크릿에 그대로 넣지 않고, CI 전용 키
 노드에 스케줄되든 그 노드가 GHCR에서 직접 pull한다(`imagePullPolicy:
 Always`로 변경, 기존 `Never`는 사이드로드 전제였던 설정).
 
+## 후속 — 빌드 캐시 (2026-08-25)
+
+QEMU 크로스빌드가 매번 8~10분 걸려서, 소스만 바뀌어도 Gradle
+배포판·의존성을 처음부터 다시 받는 게 낭비였다. Dockerfile을 두
+단계로 나눠(의존성 관련 파일만 먼저 COPY → `gradlew dependencies`로
+캐시 예열 → 나머지 소스 COPY → `bootJar`) 의존성 다운로드 레이어와
+컴파일 레이어를 분리하고, `docker/build-push-action`에
+`cache-from`/`cache-to: type=gha`를 추가해 그 레이어 캐시를 Actions
+실행 간에 유지되게 했다. QEMU 에뮬레이션 자체의 오버헤드는 그대로라
+근본적인 해결은 아니고(진짜 해결책은 네이티브 arm64 호스티드 러너,
+아직 private 저장소 무료 한도 적용 여부 미확인이라 보류), 의존성이
+안 바뀐 반복 빌드의 시간만 줄어든다.
+
+이 저장소는 GitHub Actions 무료 포함 분수(월 2,000분, private 기준)
+안에서 운영하는 게 원칙이다 — arm64 네이티브 러너 전환은 과금
+여부가 문서만으로 100% 확인되지 않아 보류했다. Public 저장소였다면
+호스티드 러너(arm64 포함)가 무제한 무료라 이 문제 자체가 없다.
+
 ## 남은 위험
 
 - GitHub Actions 러너가 죽거나 GHCR/GitHub 자체 장애가 나면 배포가
