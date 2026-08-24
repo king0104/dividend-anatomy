@@ -1,7 +1,7 @@
 name: Build and Deploy
 
-# main에 푸시되면 arm64 이미지를 빌드해 GHCR(public)에 올리고,
-# k3s master에 SSH로 접속해 새 이미지로 롤아웃한다.
+# main에 푸시되면 네이티브 arm64 호스티드 러너(public 저장소라 무제한 무료)에서
+# 이미지를 빌드해 GHCR(public)에 올리고, k3s master에 SSH로 접속해 새 이미지로 롤아웃한다.
 # 기존 수동 절차(docker save -> scp x3 -> ctr import x3 -> rollout restart)를 대체.
 # 배경: docs/decisions/11-cicd-pipeline.md
 
@@ -19,17 +19,12 @@ env:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up QEMU (arm64 cross-build)
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
