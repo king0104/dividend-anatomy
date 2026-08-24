@@ -42,10 +42,11 @@ public class TtmDividendAggregationService {
         List<DividendPayment> payments = dividendPaymentRepository
                 .findByTickerAndTypeAndExDividendDateAfterAndExDividendDateLessThanEqualOrderByExDividendDateAsc(
                         ticker, DividendType.REGULAR, windowStart, windowEnd);
+        List<SplitEvent> allSplits = splitEventRepository.findByTickerOrderByExecutionDateAsc(ticker);
 
         BigDecimal actualSum = BigDecimal.ZERO;
         for (DividendPayment payment : payments) {
-            actualSum = actualSum.add(splitAdjustedAmount(ticker, payment), MC);
+            actualSum = actualSum.add(splitAdjustedAmount(ticker, payment, allSplits), MC);
         }
 
         int foundCount = payments.size();
@@ -61,9 +62,10 @@ public class TtmDividendAggregationService {
         return new TtmDividendSummary(actualSum, annualizedSum, foundCount, expectedCount);
     }
 
-    private BigDecimal splitAdjustedAmount(Ticker ticker, DividendPayment payment) {
-        List<SplitEvent> laterSplits = splitEventRepository
-                .findByTickerAndExecutionDateAfterOrderByExecutionDateAsc(ticker, payment.getExDividendDate());
+    private BigDecimal splitAdjustedAmount(Ticker ticker, DividendPayment payment, List<SplitEvent> allSplits) {
+        List<SplitEvent> laterSplits = allSplits.stream()
+                .filter(s -> s.getExecutionDate().isAfter(payment.getExDividendDate()))
+                .toList();
 
         if (!laterSplits.isEmpty()) {
             BigDecimal cumulativeRatio = laterSplits.stream()
