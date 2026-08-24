@@ -16,5 +16,8 @@ public interface SplitEventRepository extends JpaRepository<SplitEvent, Long> {
     /** 종목의 전체 분할 이력을 한 번에 가져와 배당 건별로 메모리에서 필터링할 때 사용(N+1 방지). */
     List<SplitEvent> findByTickerOrderByExecutionDateAsc(Ticker ticker);
 
+    /** 여러 티커의 분할 이력을 한 번에 조회 — 목록 화면에서 티커마다 반복 조회하는 대신 사용(N+1 방지). */
+    List<SplitEvent> findByTickerInOrderByExecutionDateAsc(List<Ticker> tickers);
+
     Optional<SplitEvent> findByTickerAndExecutionDate(Ticker ticker, LocalDate executionDate);
 }

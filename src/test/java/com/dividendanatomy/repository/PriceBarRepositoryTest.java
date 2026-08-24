@@ -9,7 +9,10 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -83,5 +86,33 @@ class PriceBarRepositoryTest {
 
         assertTrue(result.isPresent());
         assertEquals("KO", result.get().getTicker().getSymbol());
+    }
+
+    @Test
+    void findLatestOnOrBeforeForTickerIdsReturnsOneNearestBarPerTicker() {
+        seed();
+
+        List<PriceBar> results = priceBarRepository.findLatestOnOrBeforeForTickerIds(
+                List.of(ko.getId(), other.getId()), LocalDate.parse("2026-01-07"));
+
+        assertEquals(2, results.size());
+        Map<String, PriceBar> bySymbol = results.stream()
+                .collect(Collectors.toMap(p -> p.getTicker().getSymbol(), p -> p));
+        // KO의 01-10 bar는 cutoff(01-07) 이후라 제외되고, 그 이전 최근값(01-05)이 나와야 함
+        assertEquals(LocalDate.parse("2026-01-05"), bySymbol.get("KO").getDate());
+        assertEquals(LocalDate.parse("2026-01-06"), bySymbol.get("PEP").getDate());
+    }
+
+    @Test
+    void findLatestOnOrBeforeForTickerIdsOmitsTickerWithNoBarBeforeCutoff() {
+        seed();
+        Ticker tooNew = tickerRepository.save(new Ticker("TOONEW", "Too New Co", "USD"));
+        priceBarRepository.save(bar(tooNew, "2026-02-01", "10.00")); // cutoff 이후 데이터만 존재
+
+        List<PriceBar> results = priceBarRepository.findLatestOnOrBeforeForTickerIds(
+                List.of(ko.getId(), tooNew.getId()), LocalDate.parse("2026-01-07"));
+
+        assertEquals(1, results.size());
+        assertEquals("KO", results.get(0).getTicker().getSymbol());
     }
 }

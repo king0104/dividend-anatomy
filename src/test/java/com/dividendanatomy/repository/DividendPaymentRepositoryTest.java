@@ -31,16 +31,16 @@ class DividendPaymentRepositoryTest {
 
         // 창의 시작 경계(제외 대상), 창 중간, 창의 끝 경계(포함) — 시작점 제외/끝만 포함 확인
         // (docs/decisions/05-ttm-window-boundary-fix.md)
-        save("2025-08-22", "0.51", DividendType.REGULAR); // 시작 경계 — 이제 제외돼야 함
-        save("2025-11-14", "0.51", DividendType.REGULAR);
-        save("2026-08-22", "0.99", DividendType.SPECIAL); // 끝 경계 안에 있지만 타입 필터로 제외돼야 함
+        save(ko, "2025-08-22", "0.51", DividendType.REGULAR); // 시작 경계 — 이제 제외돼야 함
+        save(ko, "2025-11-14", "0.51", DividendType.REGULAR);
+        save(ko, "2026-08-22", "0.99", DividendType.SPECIAL); // 끝 경계 안에 있지만 타입 필터로 제외돼야 함
         // 창 밖 (하루 전)
-        save("2025-08-21", "0.51", DividendType.REGULAR);
+        save(ko, "2025-08-21", "0.51", DividendType.REGULAR);
     }
 
-    private void save(String exDividendDate, String amount, DividendType type) {
+    private void save(Ticker ticker, String exDividendDate, String amount, DividendType type) {
         LocalDate d = LocalDate.parse(exDividendDate);
-        dividendPaymentRepository.save(new DividendPayment(ko, d, d, d, new BigDecimal(amount), type, DataSource.MASSIVE));
+        dividendPaymentRepository.save(new DividendPayment(ticker, d, d, d, new BigDecimal(amount), type, DataSource.MASSIVE));
     }
 
     @Test
@@ -65,5 +65,19 @@ class DividendPaymentRepositoryTest {
                         ko, DividendType.REGULAR, LocalDate.parse("2025-08-22"), LocalDate.parse("2026-08-22"));
 
         assertTrue(result.stream().noneMatch(p -> p.getExDividendDate().equals(LocalDate.parse("2025-08-21"))));
+    }
+
+    @Test
+    void findByTickerInReturnsEachTickersOwnPaymentsWithoutCrossContamination() {
+        seed(); // ko: REGULAR 3건 + SPECIAL 1건
+        Ticker pep = tickerRepository.save(new Ticker("PEP", "PepsiCo", "USD"));
+        save(pep, "2025-09-01", "1.00", DividendType.REGULAR);
+
+        List<DividendPayment> result = dividendPaymentRepository
+                .findByTickerInAndTypeOrderByExDividendDateAsc(List.of(ko, pep), DividendType.REGULAR);
+
+        assertEquals(4, result.size()); // ko REGULAR 3건 + pep REGULAR 1건 (SPECIAL은 타입 필터로 제외)
+        assertTrue(result.stream().filter(p -> p.getTicker().equals(ko)).allMatch(p -> p.getType() == DividendType.REGULAR));
+        assertEquals(1, result.stream().filter(p -> p.getTicker().equals(pep)).count());
     }
 }
