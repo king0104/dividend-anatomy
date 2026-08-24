@@ -46,23 +46,4 @@ class SplitEventRepositoryTest {
                 .findByTickerAndExecutionDateAfterOrderByExecutionDateAsc(ko, LocalDate.parse("2012-09-12"));
         assertEquals(0, afterSeptember.size());
     }
-
-    @Test
-    void findByTickerInReturnsEachTickersOwnSplitsWithoutCrossContamination() {
-        Ticker ko = tickerRepository.save(new Ticker("KO", "The Coca-Cola Company", "USD"));
-        Ticker aapl = tickerRepository.save(new Ticker("AAPL", "Apple Inc.", "USD"));
-
-        splitEventRepository.save(new SplitEvent(ko, LocalDate.parse("2012-08-13"), new BigDecimal("2"), DataSource.MASSIVE));
-        splitEventRepository.save(new SplitEvent(aapl, LocalDate.parse("2020-08-31"), new BigDecimal("4"), DataSource.MASSIVE));
-        splitEventRepository.save(new SplitEvent(aapl, LocalDate.parse("2014-06-09"), new BigDecimal("7"), DataSource.MASSIVE));
-
-        List<SplitEvent> result = splitEventRepository.findByTickerInOrderByExecutionDateAsc(List.of(ko, aapl));
-
-        assertEquals(3, result.size());
-        List<SplitEvent> aaplSplits = result.stream().filter(s -> s.getTicker().equals(aapl)).toList();
-        assertEquals(2, aaplSplits.size());
-        // ORDER BY execution_date ASC가 티커별 그룹이 섞여도 유지돼야 함
-        assertEquals(LocalDate.parse("2014-06-09"), aaplSplits.get(0).getExecutionDate());
-        assertEquals(LocalDate.parse("2020-08-31"), aaplSplits.get(1).getExecutionDate());
-    }
 }

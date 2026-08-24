@@ -24,7 +24,4 @@ public interface DividendPaymentRepository extends JpaRepository<DividendPayment
     List<DividendPayment> findByTickerAndTypeOrderByExDividendDateAsc(Ticker ticker, DividendType type);
 
     List<DividendPayment> findByTickerOrderByExDividendDateAsc(Ticker ticker);
-
-    /** 여러 티커의 정기 배당 이력을 한 번에 조회 — 목록 화면에서 티커마다 반복 조회하는 대신 사용(N+1 방지). */
-    List<DividendPayment> findByTickerInAndTypeOrderByExDividendDateAsc(List<Ticker> tickers, DividendType type);
 }
