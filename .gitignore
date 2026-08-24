@@ -21,6 +21,9 @@ build/
 # 로그
 *.log
 
+# k8s 배포용 실제 시크릿(토큰 평문 포함) — 커밋 금지
+k8s/secret.yaml
+
 # Python (API 검증 스크립트용)
 __pycache__/
 *.pyc

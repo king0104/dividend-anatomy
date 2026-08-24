@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dividend-anatomy
+  namespace: dividend-anatomy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dividend-anatomy
+  template:
+    metadata:
+      labels:
+        app: dividend-anatomy
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: worker-2
+      containers:
+        - name: dividend-anatomy
+          image: docker.io/library/dividend-anatomy:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_HOST
+              value: "10.0.2.201"
+            - name: DB_PORT
+              value: "3306"
+          envFrom:
+            - secretRef:
+                name: dividend-anatomy-secret
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 20
