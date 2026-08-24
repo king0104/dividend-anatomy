@@ -113,6 +113,15 @@ CLAUDE.md 한 페이지로 충분해 Skills로 쪼갤 이유가 없었다. 안 �
 
 ---
 
+## 배포
+
+개인 OCI 계정의 k3s 클러스터(Always Free Ampere ARM64)에 새
+워크로드로 배포했다 — 새 인스턴스를 만들지 않고 기존 클러스터의
+여유 용량을 쓴 이유, 이미지 사이드로드 방식, 배포 중 발견한 클러스터
+크로스노드 네트워킹 문제와 우회는 `docs/decisions/08-deployment.md`
+참고. TLS 없음(HTTP 평문, 데모 목적) — 기존 클러스터 워크로드와 동일
+수준.
+
 ## 기술 스택
 
 Java 21 · Spring Boot 4.1 · MySQL(OCI) · JUnit + AssertJ + ArchUnit ·
