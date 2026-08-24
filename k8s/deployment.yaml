@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
         - name: dividend-anatomy
-          image: docker.io/library/dividend-anatomy:latest
-          imagePullPolicy: Never
+          image: ghcr.io/king0104/dividend-anatomy:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           env:

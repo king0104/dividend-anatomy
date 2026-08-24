@@ -115,24 +115,34 @@ Free `VM.Standard.A1.Flex`(Ampere ARM64) 3대로 4 OCPU/24GB 전체 무료
 
 ## 재배포 절차 (코드가 바뀌었을 때)
 
+**2026-08-25부터 GitHub Actions로 자동화됨**(`docs/decisions/11-cicd-pipeline.md`).
+`main`에 푸시하면:
+
+1. `ubuntu-latest` 러너가 QEMU로 arm64 이미지를 빌드
+2. `ghcr.io/king0104/dividend-anatomy`(public)에 `:latest`·`:<sha>`로 push
+3. master에 SSH로 접속해 `kubectl set image` + `rollout status`로 롤아웃
+
+노드가 GHCR에서 직접 pull하므로(`imagePullPolicy: Always`) 이미지를
+3개 노드에 손으로 옮기는 과정이 없다.
+
+**수동 절차(예전 방식, Actions 장애 시 대체용)**:
+
 1. 로컬에서 `docker build --platform linux/arm64 -t
-   dividend-anatomy:latest .`
-2. `docker save dividend-anatomy:latest -o /tmp/dividend-anatomy.tar`
-3. `scp`로 3개 노드 전부에 전송
-4. 각 노드에서 `sudo k3s ctr images import
-   /tmp/dividend-anatomy.tar`
-5. master에서 `sudo k3s kubectl rollout restart deployment
-   dividend-anatomy -n dividend-anatomy` (이미지 태그가 `:latest`로
-   고정이라 `apply`만으로는 새 이미지를 안 당겨오므로 명시적으로
-   재시작해야 함)
+   ghcr.io/king0104/dividend-anatomy:latest .`
+2. `docker push ghcr.io/king0104/dividend-anatomy:latest`
+3. master에서 `sudo k3s kubectl rollout restart deployment
+   dividend-anatomy -n dividend-anatomy`
 
 ## 알려진 제약
 
 - TLS 없음 — 기존 클러스터 워크로드(`nginx-test`)와 동일 수준,
   의도적 범위 밖.
-- 자동 CI/CD 없음 — 위 재배포 절차를 매번 수동으로.
-- 이미지 사이드로드 방식이라 레지스트리 장애/용량 이슈는 없지만,
-  3개 노드 동기화를 사람이 직접 챙겨야 한다.
+- CI 배포 키(`dividend-anatomy-ci-deploy`)가 master
+  `authorized_keys`에 별도 등록돼 있음 — 개인 키와 분리, 필요시 이
+  키만 제거해 무효화 가능.
+- GHCR 이미지는 public — k3s 쪽 pull 인증 부담을 없애기 위한
+  트레이드오프(`docs/decisions/11-cicd-pipeline.md` 참고). 소스
+  저장소 자체는 private.
 - 호스트 `iptables`가 선언적으로 관리되지 않음 — 새 포트가 필요하면
   OCI 보안 목록 + 호스트 `iptables` 둘 다 손으로 열어야 한다(위
   "네트워크" 절 참고).
