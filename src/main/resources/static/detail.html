@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>배당 지표 해부 도구 — 종목 상세</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<header class="site-header">
+    <span class="brand">배당 지표 해부 도구</span>
+    <nav>
+        <a href="/index.html">종목 목록</a>
+        <a href="/cashflow.html">월별 현금흐름</a>
+    </nav>
+</header>
+<main>
+    <p><a href="/index.html">&larr; 종목 목록으로</a></p>
+    <h1 id="ticker-title">불러오는 중...</h1>
+    <div id="flags" class="flags"></div>
+
+    <h2>배당률 변화 기여도 분해</h2>
+    <div id="yield-decomposition-section" class="card muted">불러오는 중...</div>
+
+    <h2>배당 지속성 지표</h2>
+    <div id="growth-card" class="card muted">불러오는 중...</div>
+    <div id="cut-card" class="card muted">불러오는 중...</div>
+    <div id="volatility-card" class="card muted">불러오는 중...</div>
+
+    <h2>특별배당 내역</h2>
+    <div id="special-dividend-section" class="card muted">불러오는 중...</div>
+</main>
+<footer class="disclosures">
+    <p>투자 조언이 아닙니다. 정보 제공 목적으로만 제공됩니다.</p>
+    <p>과거 이력 기반 추정치이며, 기업은 배당을 줄이거나 없앨 수 있습니다.</p>
+    <p>주가 변동은 반영하지 않습니다 — 배당을 받아도 주가가 하락하면 손실일 수 있습니다.</p>
+    <p>세금은 미국 원천징수 15%만 반영하며, 금융소득종합과세는 별도입니다.</p>
+    <p>데이터 출처: 배당·분할 이력 Massive, 주가 시계열 Twelve Data.</p>
+</footer>
+<script src="/js/api.js"></script>
+<script src="/js/detail.js"></script>
+</body>
+</html>
