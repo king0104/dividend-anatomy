@@ -14,14 +14,17 @@ async function loadDetail() {
         fetchJson(`/api/tickers/${symbol}/dividend-cuts`),
         fetchJson(`/api/tickers/${symbol}/volatility?asOf=${asOf}`),
         fetchJson(`/api/tickers/${symbol}/special-dividends`),
+        fetchJson("/api/tickers"),
+        fetchJson(`/api/tickers/${symbol}/krw-dividends`),
     ]);
-    const [yieldR, growthR, cutR, volR, specialR] = results;
+    const [yieldR, growthR, cutR, volR, specialR, tickersR, krwR] = results;
 
     const yieldData = renderYieldDecomposition(yieldR);
     const growthData = renderGrowth(growthR);
     const cutData = renderCuts(cutR);
     renderVolatility(volR);
     renderSpecialDividends(specialR);
+    renderGoalSection(tickersR, krwR);
 
     renderFlags(yieldData, growthData, cutData);
 }
@@ -162,6 +165,67 @@ function renderSpecialDividends(result) {
             <tbody>${rows}</tbody>
         </table>
     `;
+}
+
+/**
+ * PROJECT.md 4.4절 "목표 역산" — 월 목표 배당액(KRW)을 입력하면 필요
+ * 주식 수·원금을 역산한다. 현재가·현재 시가배당률(GET /api/tickers)과
+ * 가장 최근 확보된 환율(KRW 환산 지급 이력의 마지막 CONVERTED 건)을
+ * 그대로 사용하는 스칼라 계산일 뿐 새 지표가 아니다 — 미래 예측이나
+ * 투자 판단 문구는 만들지 않는다("현실 감각"용 역산일 뿐).
+ */
+function renderGoalSection(tickersResult, krwResult) {
+    const el = document.getElementById("goal-section");
+    if (tickersResult.status !== "fulfilled") {
+        el.textContent = `데이터 없음: ${tickersResult.reason.message}`;
+        return;
+    }
+    const ticker = tickersResult.value.tickers.find((t) => t.symbol === symbol);
+    if (!ticker || ticker.currentPrice == null || ticker.currentYieldPercent == null) {
+        el.textContent = "현재가 또는 시가배당률 데이터가 부족해 역산할 수 없습니다.";
+        return;
+    }
+
+    let latestRate = null;
+    if (krwResult.status === "fulfilled") {
+        const converted = krwResult.value.entries.filter((e) => e.status === "CONVERTED");
+        if (converted.length > 0) {
+            latestRate = converted[converted.length - 1].exchangeRate;
+        }
+    }
+
+    el.className = "card";
+    if (latestRate == null) {
+        el.innerHTML = `<p class="muted">이 종목은 환율 데이터가 없어 원화 기준 역산을 제공할 수 없습니다.</p>`;
+        return;
+    }
+
+    el.innerHTML = `
+        <p class="muted">현재가 ${formatUsd(ticker.currentPrice)}, 시가배당률 ${formatPercent(ticker.currentYieldPercent)} 기준
+           (환율은 가장 최근 확보된 지급일 기준 ${latestRate.toFixed(2)}원/달러 — 실시간 환율이 아닙니다)</p>
+        <label>월 목표 배당액(세전, 원):
+            <input type="number" id="goal-monthly-krw" min="0" value="300000">
+        </label>
+        <button id="goal-calc-btn">역산</button>
+        <div id="goal-result" style="margin-top:0.7rem"></div>
+    `;
+
+    document.getElementById("goal-calc-btn").addEventListener("click", () => {
+        const monthlyKrw = Number(document.getElementById("goal-monthly-krw").value);
+        const annualDividendPerShareUsd = ticker.currentPrice * (ticker.currentYieldPercent / 100);
+        const annualDividendPerShareKrw = annualDividendPerShareUsd * latestRate;
+        if (annualDividendPerShareKrw <= 0) {
+            document.getElementById("goal-result").innerHTML = `<p class="error-text">배당수익률이 0이라 역산할 수 없습니다.</p>`;
+            return;
+        }
+        const requiredShares = Math.ceil((monthlyKrw * 12) / annualDividendPerShareKrw);
+        const requiredPrincipalKrw = requiredShares * ticker.currentPrice * latestRate;
+
+        document.getElementById("goal-result").innerHTML = `
+            <p>월 ${formatKrw(monthlyKrw)}을 받으려면 약 <strong>${requiredShares.toLocaleString("ko-KR")}주</strong>,
+               원금 약 <strong>${formatKrw(requiredPrincipalKrw)}</strong>가 필요합니다 (현재가·현재 배당률 기준 추정).</p>
+        `;
+    });
 }
 
 function renderFlags(yieldContribution, growth, cutInfo) {
