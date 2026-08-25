@@ -7,6 +7,18 @@ interface Props {
   onSubmit: (selections: Selection[]) => void;
 }
 
+// static/js/index.js의 HIGH_YIELD_WARNING_THRESHOLD와 동일 기준(PROJECT.md 2절
+// 알트리아 8.2% 예시 참고, 보수적으로 6%)을 재사용 — 두 화면에서 다른 기준을
+// 쓰면 사용자가 혼란스럽다.
+const HIGH_YIELD_WARNING_THRESHOLD = 6.0;
+
+function formatStreak(ticker: TickerSummaryResponse): string {
+  if (ticker.streakStatus !== "CALCULATED" || ticker.streakYears === null) {
+    return "데이터 부족";
+  }
+  return `${ticker.streakYears}년 연속 증가`;
+}
+
 export default function PortfolioBuilderStep({ onSubmit }: Props) {
   const [tickers, setTickers] = useState<TickerSummaryResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +73,14 @@ export default function PortfolioBuilderStep({ onSubmit }: Props) {
             <div>
               <div className="text-sm font-medium text-slate-800">{ticker.name}</div>
               <div className="text-xs text-slate-400">{ticker.symbol}</div>
+              <div className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                <span>시가배당률 {ticker.currentYieldPercent?.toFixed(2) ?? "-"}%</span>
+                {ticker.currentYieldPercent !== null &&
+                  ticker.currentYieldPercent >= HIGH_YIELD_WARNING_THRESHOLD && (
+                    <span className="text-amber-600">⚠️ 확인 필요</span>
+                  )}
+              </div>
+              <div className="text-xs text-slate-400">{formatStreak(ticker)}</div>
             </div>
             <input
               type="number"
