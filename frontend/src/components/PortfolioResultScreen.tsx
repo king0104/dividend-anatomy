@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getKrwDividends } from "../api/portfolio";
 import type { KrwConvertedEntry } from "../api/types";
-import { buildMonthlyCashFlow, type MonthBucket, type Selection, type SkippedEntry } from "../monthlyBucket";
+import { buildMonthlyCashFlow, type Selection, type TaxMode } from "../monthlyBucket";
 
 interface Props {
   monthlyGoalKrw: number;
@@ -17,13 +17,13 @@ function formatKrw(value: number): string {
 }
 
 export default function PortfolioResultScreen({ monthlyGoalKrw, selections, onBack }: Props) {
-  const [buckets, setBuckets] = useState<MonthBucket[] | null>(null);
-  const [skipped, setSkipped] = useState<SkippedEntry[]>([]);
+  const [entriesBySymbol, setEntriesBySymbol] = useState<Record<string, KrwConvertedEntry[]> | null>(null);
+  const [taxMode, setTaxMode] = useState<TaxMode>("posttax");
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setBuckets(null);
+    setEntriesBySymbol(null);
     setError(null);
     setSelectedIdx(null);
 
@@ -34,14 +34,14 @@ export default function PortfolioResultScreen({ monthlyGoalKrw, selections, onBa
           .catch(() => [s.symbol, [] as KrwConvertedEntry[]] as const),
       ),
     )
-      .then((pairs) => {
-        const entriesBySymbol = Object.fromEntries(pairs);
-        const { buckets: result, skipped: skippedResult } = buildMonthlyCashFlow(selections, entriesBySymbol);
-        setBuckets(result);
-        setSkipped(skippedResult);
-      })
+      .then((pairs) => setEntriesBySymbol(Object.fromEntries(pairs)))
       .catch((err: Error) => setError(err.message));
   }, [selections]);
+
+  const { buckets, skipped } = useMemo(() => {
+    if (!entriesBySymbol) return { buckets: null, skipped: [] };
+    return buildMonthlyCashFlow(selections, entriesBySymbol, taxMode);
+  }, [entriesBySymbol, selections, taxMode]);
 
   if (error) {
     return (
@@ -69,12 +69,34 @@ export default function PortfolioResultScreen({ monthlyGoalKrw, selections, onBa
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-5 px-6 py-10">
+      <div className="flex justify-center gap-2">
+        {(
+          [
+            { mode: "posttax" as const, label: "세후(실수령)" },
+            { mode: "pretax" as const, label: "세전" },
+          ]
+        ).map(({ mode, label }) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setTaxMode(mode)}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+              taxMode === mode ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <h1 className="text-center text-2xl font-bold leading-snug text-blue-700">
-        최근 1년 기준, 월 평균 {formatKrw(monthlyAverageKrw)}을 받았어요
+        최근 1년 기준, {taxMode === "posttax" ? "세후" : "세전"} 월 평균 {formatKrw(monthlyAverageKrw)}을
+        받았어요
       </h1>
 
       <div className="rounded-xl bg-slate-100 px-4 py-3 text-center text-sm font-medium text-slate-700">
-        목표(월 {formatKrw(monthlyGoalKrw)}) 대비 {achievementPercent.toFixed(0)}% 만큼이에요
+        {taxMode === "posttax" ? "세후" : "세전"} 기준, 목표(월 {formatKrw(monthlyGoalKrw)}) 대비{" "}
+        {achievementPercent.toFixed(0)}% 만큼이에요
         <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
           <div
             className="h-2 rounded-full bg-blue-600"
@@ -136,6 +158,7 @@ export default function PortfolioResultScreen({ monthlyGoalKrw, selections, onBa
       <div className="text-center text-xs text-slate-400">
         <p>과거 데이터 기준 시뮬레이션이며 투자 조언이 아닙니다.</p>
         <p>종목 조합은 예시가 아니라 직접 구성한 내용입니다.</p>
+        <p>세금은 미국 원천징수 15%만 반영하며, 금융소득종합과세는 별도입니다.</p>
       </div>
 
       <a

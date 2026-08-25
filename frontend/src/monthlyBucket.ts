@@ -27,6 +27,12 @@ export interface SkippedEntry {
   status: string;
 }
 
+export type TaxMode = "pretax" | "posttax";
+
+function pickAmountKrw(entry: KrwConvertedEntry, taxMode: TaxMode): number | null {
+  return taxMode === "posttax" ? entry.netAmountKrw : entry.grossAmountKrw;
+}
+
 /** 최근 12개월(이번 달 포함) 버킷을 오래된 순으로 만든다. */
 export function buildMonthBuckets(now: Date = new Date()): MonthBucket[] {
   const buckets: MonthBucket[] = [];
@@ -49,6 +55,7 @@ function bucketKey(year: number, month: number): string {
 export function buildMonthlyCashFlow(
   selections: Selection[],
   entriesBySymbol: Record<string, KrwConvertedEntry[]>,
+  taxMode: TaxMode,
   now: Date = new Date(),
 ): { buckets: MonthBucket[]; skipped: SkippedEntry[] } {
   const buckets = buildMonthBuckets(now);
@@ -67,11 +74,12 @@ export function buildMonthlyCashFlow(
       if (idx === undefined) {
         continue;
       }
-      if (entry.status !== "CONVERTED" || entry.netAmountKrw === null) {
+      const pickedAmountKrw = pickAmountKrw(entry, taxMode);
+      if (entry.status !== "CONVERTED" || pickedAmountKrw === null) {
         skipped.push({ symbol, exDividendDate: entry.exDividendDate, status: entry.status });
         continue;
       }
-      const amountKrw = entry.netAmountKrw * quantity;
+      const amountKrw = pickedAmountKrw * quantity;
       buckets[idx].totalKrw += amountKrw;
       buckets[idx].contributions.push({ symbol, amountKrw });
     }
