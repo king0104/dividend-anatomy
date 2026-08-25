@@ -1,6 +1,7 @@
 package com.dividendanatomy.ingestion;
 
 import com.dividendanatomy.domain.market.Ticker;
+import com.dividendanatomy.ingestion.alphavantage.AlphaVantageFinancialsIngestionService;
 import com.dividendanatomy.ingestion.massive.MassiveDividendIngestionService;
 import com.dividendanatomy.ingestion.massive.MassiveSplitIngestionService;
 import com.dividendanatomy.ingestion.twelvedata.TwelveDataPriceIngestionService;
@@ -22,6 +23,11 @@ import java.time.LocalDate;
  * 브랜드 풀처럼 더 긴 과거 가격이 필요할 때 20 등으로 늘려서 쓴다 —
  * Twelve Data 무료 플랜은 최소 20년까지 실키로 확인됨(docs/decisions/13).
  * 화면/스케줄러가 아직 없는 지금 단계에서만 쓰는 임시 진입점.
+ *
+ * <p>4번째 단계(재무 지표 수집)는 Alpha Vantage 무료 플랜 하루 25콜 제한에
+ * 걸린다(호출 4번/티커, docs/decisions/12) — 여러 티커를 한 번에 돌릴 땐
+ * 하루 6종목(24콜)을 넘기지 않도록 나눠서 실행할 것. 코드로 자동 회피하지
+ * 않는다(과설계).
  */
 @Component
 @ConditionalOnProperty("ingest.ticker")
@@ -31,6 +37,7 @@ public class IngestionRunner implements ApplicationRunner {
     private final TwelveDataPriceIngestionService priceIngestionService;
     private final MassiveSplitIngestionService splitIngestionService;
     private final MassiveDividendIngestionService dividendIngestionService;
+    private final AlphaVantageFinancialsIngestionService financialsIngestionService;
 
     @Value("${ingest.ticker}")
     private String ingestSpec;
@@ -42,11 +49,13 @@ public class IngestionRunner implements ApplicationRunner {
             TickerRepository tickerRepository,
             TwelveDataPriceIngestionService priceIngestionService,
             MassiveSplitIngestionService splitIngestionService,
-            MassiveDividendIngestionService dividendIngestionService) {
+            MassiveDividendIngestionService dividendIngestionService,
+            AlphaVantageFinancialsIngestionService financialsIngestionService) {
         this.tickerRepository = tickerRepository;
         this.priceIngestionService = priceIngestionService;
         this.splitIngestionService = splitIngestionService;
         this.dividendIngestionService = dividendIngestionService;
+        this.financialsIngestionService = financialsIngestionService;
     }
 
     @Override
@@ -74,5 +83,9 @@ public class IngestionRunner implements ApplicationRunner {
         int dividendCount = dividendIngestionService.ingest(ticker);
         System.out.println("[ingest] " + symbol + " 배당 " + dividendCount + "건 신규 저장, regularPaymentsPerYear="
                 + tickerRepository.findBySymbol(symbol).map(Ticker::getRegularPaymentsPerYear).orElse(null));
+
+        System.out.println("[ingest] " + symbol + " 재무 지표(배당 안전도) 수집 시작");
+        financialsIngestionService.ingest(ticker);
+        System.out.println("[ingest] " + symbol + " 재무 지표 반영 완료");
     }
 }
