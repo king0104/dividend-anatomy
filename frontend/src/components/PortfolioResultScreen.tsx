@@ -5,6 +5,7 @@ import type { KrwConvertedEntry } from "../api/types";
 import BrokerSearchCta from "./BrokerSearchCta";
 import { buildMonthlyCashFlow, type Selection, type TaxMode } from "../monthlyBucket";
 import { daysUntil, nextUpcomingDividend } from "../nextDividendEstimate";
+import { recordCheckIn, type StreakState } from "../streak";
 
 interface Props {
   monthlyGoalKrw: number;
@@ -23,6 +24,11 @@ export default function PortfolioResultScreen({ monthlyGoalKrw, selections, onBa
   const [taxMode, setTaxMode] = useState<TaxMode>("posttax");
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [streak, setStreak] = useState<StreakState | null>(null);
+
+  useEffect(() => {
+    setStreak(recordCheckIn());
+  }, []);
 
   useEffect(() => {
     setEntriesBySymbol(null);
@@ -76,6 +82,12 @@ export default function PortfolioResultScreen({ monthlyGoalKrw, selections, onBa
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-5 px-6 py-10">
+      {streak && streak.streakDays > 1 && (
+        <div className="text-center text-sm font-medium text-orange-600">
+          🔥 {streak.streakDays}일 연속 확인 중이에요
+        </div>
+      )}
+
       <div className="flex justify-center gap-2">
         {(
           [
