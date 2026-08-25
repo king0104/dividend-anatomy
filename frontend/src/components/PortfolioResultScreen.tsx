@@ -3,6 +3,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { getKrwDividends } from "../api/portfolio";
 import type { KrwConvertedEntry } from "../api/types";
 import { buildMonthlyCashFlow, type Selection, type TaxMode } from "../monthlyBucket";
+import { daysUntil, nextUpcomingDividend } from "../nextDividendEstimate";
 
 interface Props {
   monthlyGoalKrw: number;
@@ -41,6 +42,11 @@ export default function PortfolioResultScreen({ monthlyGoalKrw, selections, onBa
   const { buckets, skipped } = useMemo(() => {
     if (!entriesBySymbol) return { buckets: null, skipped: [] };
     return buildMonthlyCashFlow(selections, entriesBySymbol, taxMode);
+  }, [entriesBySymbol, selections, taxMode]);
+
+  const nextDividend = useMemo(() => {
+    if (!entriesBySymbol) return null;
+    return nextUpcomingDividend(selections, entriesBySymbol, taxMode);
   }, [entriesBySymbol, selections, taxMode]);
 
   if (error) {
@@ -88,6 +94,22 @@ export default function PortfolioResultScreen({ monthlyGoalKrw, selections, onBa
           </button>
         ))}
       </div>
+
+      {nextDividend && (
+        <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-center text-sm text-blue-800">
+          다음 배당은 <span className="font-bold">D-{Math.max(0, daysUntil(nextDividend.estimatedExDate))}</span>,{" "}
+          {nextDividend.symbol}에서
+          {nextDividend.estimatedAmountKrw !== null ? (
+            <> 약 {formatKrw(nextDividend.estimatedAmountKrw * nextDividend.quantity)}</>
+          ) : (
+            " 금액 미확인"
+          )}{" "}
+          예정이에요
+          <div className="mt-1 text-xs text-blue-500">
+            지난 지급 간격 기준 추정이며, 실제 발표일과 다를 수 있어요.
+          </div>
+        </div>
+      )}
 
       <h1 className="text-center text-2xl font-bold leading-snug text-blue-700">
         최근 1년 기준, {taxMode === "posttax" ? "세후" : "세전"} 월 평균 {formatKrw(monthlyAverageKrw)}을

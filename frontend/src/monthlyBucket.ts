@@ -29,7 +29,7 @@ export interface SkippedEntry {
 
 export type TaxMode = "pretax" | "posttax";
 
-function pickAmountKrw(entry: KrwConvertedEntry, taxMode: TaxMode): number | null {
+export function pickAmountKrw(entry: KrwConvertedEntry, taxMode: TaxMode): number | null {
   return taxMode === "posttax" ? entry.netAmountKrw : entry.grossAmountKrw;
 }
 
