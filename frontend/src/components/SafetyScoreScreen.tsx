@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getSafetyScore } from "../api/safetyScore";
 import type { Brand, DividendSafetyScoreResponse, SafetyBand } from "../api/types";
 import AnnualDividendChart from "./AnnualDividendChart";
+import { BOOK_INSIGHTS, shouldShowBookInsight } from "../bookInsights";
 
 interface Props {
   brand: Brand;
@@ -113,6 +114,11 @@ export default function SafetyScoreScreen({ brand, onBack }: Props) {
                   style={{ width: `${(indicator.subScore / 20) * 100}%` }}
                 />
               </div>
+              {shouldShowBookInsight(indicator.subScore) && BOOK_INSIGHTS[indicator.name] && (
+                <p className="mt-2 rounded-lg bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+                  📖 {BOOK_INSIGHTS[indicator.name].text}
+                </p>
+              )}
             </div>
           ))}
         </div>
