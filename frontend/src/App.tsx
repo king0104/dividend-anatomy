@@ -1,5 +1,6 @@
 import { useState } from "react";
 import BrandCardGrid from "./components/BrandCardGrid";
+import FriendCalendarCompare from "./components/FriendCalendarCompare";
 import GoalInputStep from "./components/GoalInputStep";
 import InputStep from "./components/InputStep";
 import PortfolioBuilderStep from "./components/PortfolioBuilderStep";
@@ -8,7 +9,9 @@ import ResultScreen from "./components/ResultScreen";
 import SafetyScoreScreen from "./components/SafetyScoreScreen";
 import ShareCard from "./components/ShareCard";
 import type { Brand, InvestMode, TimeMachineSimulationResponse } from "./api/types";
-import type { Selection } from "./monthlyBucket";
+import { saveMyPortfolio } from "./myPortfolio";
+import { type Selection } from "./monthlyBucket";
+import { parseSharedFromLocation } from "./portfolioShareLink";
 
 type Mode = "timemachine" | "safety" | "portfolio";
 type TimeMachineStep = "brand" | "input" | "result";
@@ -23,6 +26,7 @@ interface InputValues {
 
 export default function App() {
   const [mode, setMode] = useState<Mode>("timemachine");
+  const [sharedPortfolio, setSharedPortfolio] = useState(() => parseSharedFromLocation());
 
   const [timeMachineStep, setTimeMachineStep] = useState<TimeMachineStep>("brand");
   const [brand, setBrand] = useState<Brand | null>(null);
@@ -44,6 +48,7 @@ export default function App() {
   function handlePortfolioSubmit(selections: Selection[]) {
     setPortfolioSelections(selections);
     setPortfolioStep("result");
+    saveMyPortfolio({ selections, monthlyGoalKrw });
   }
 
   function handleBrandSelect(selected: Brand) {
@@ -66,6 +71,27 @@ export default function App() {
     setTimeMachineStep("brand");
     setSafetyStep("brand");
     setPortfolioStep("goal");
+  }
+
+  function closeSharedView() {
+    window.history.replaceState(null, "", window.location.pathname);
+    setSharedPortfolio(null);
+  }
+
+  if (sharedPortfolio) {
+    return (
+      <div className="min-h-screen bg-white">
+        <FriendCalendarCompare
+          friendSelections={sharedPortfolio.selections}
+          friendGoalKrw={sharedPortfolio.monthlyGoalKrw}
+          onClose={closeSharedView}
+          onBuildMine={() => {
+            closeSharedView();
+            switchMode("portfolio");
+          }}
+        />
+      </div>
+    );
   }
 
   return (

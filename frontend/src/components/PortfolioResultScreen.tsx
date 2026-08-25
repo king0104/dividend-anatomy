@@ -5,6 +5,7 @@ import type { KrwConvertedEntry } from "../api/types";
 import BrokerSearchCta from "./BrokerSearchCta";
 import { buildMonthlyCashFlow, type Selection, type TaxMode } from "../monthlyBucket";
 import { daysUntil, nextUpcomingDividend } from "../nextDividendEstimate";
+import { buildShareUrl } from "../portfolioShareLink";
 import { recordCheckIn, type StreakState } from "../streak";
 
 interface Props {
@@ -25,6 +26,18 @@ export default function PortfolioResultScreen({ monthlyGoalKrw, selections, onBa
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [streak, setStreak] = useState<StreakState | null>(null);
+  const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
+
+  async function handleShareWithFriend() {
+    const url = buildShareUrl(selections, monthlyGoalKrw);
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareStatus("copied");
+    } catch {
+      setShareStatus("failed");
+    }
+    window.setTimeout(() => setShareStatus("idle"), 3000);
+  }
 
   useEffect(() => {
     setStreak(recordCheckIn());
@@ -194,6 +207,18 @@ export default function PortfolioResultScreen({ monthlyGoalKrw, selections, onBa
         <p>과거 데이터 기준 시뮬레이션이며 투자 조언이 아닙니다.</p>
         <p>종목 조합은 예시가 아니라 직접 구성한 내용입니다.</p>
         <p>세금은 미국 원천징수 15%만 반영하며, 금융소득종합과세는 별도입니다.</p>
+      </div>
+
+      <div className="flex flex-col items-center gap-1">
+        <button
+          type="button"
+          onClick={handleShareWithFriend}
+          className="rounded-xl border border-slate-300 px-5 py-2 text-sm font-medium text-slate-700"
+        >
+          친구에게 캘린더 공유하기
+        </button>
+        {shareStatus === "copied" && <p className="text-xs text-slate-400">링크를 복사했어요.</p>}
+        {shareStatus === "failed" && <p className="text-xs text-slate-400">링크 복사에 실패했어요.</p>}
       </div>
 
       <div className="flex flex-col items-center gap-3 border-t border-slate-100 pt-4">
