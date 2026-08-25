@@ -12,6 +12,7 @@ on:
       - 'docs/**'
       - '**/*.md'
       - '.claude/**'
+      - 'frontend/**'
   workflow_dispatch: {}
 
 env:
