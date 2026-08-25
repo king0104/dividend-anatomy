@@ -85,3 +85,19 @@ export interface KrwDividendConversionResponse {
   tickerSymbol: string;
   entries: KrwConvertedEntry[];
 }
+
+// DividendCutResponse: com.dividendanatomy.web.dividendcut.DividendCutResponse
+export type CutComparisonStatus = "CUT" | "NORMAL" | "INCOMPLETE";
+
+export interface CutEvent {
+  detectedAt: string;
+  status: CutComparisonStatus;
+  previousTtmAmount: number;
+  currentTtmAmount: number;
+  decreasePercent: number | null;
+}
+
+export interface DividendCutResponse {
+  tickerSymbol: string;
+  comparisons: CutEvent[];
+}

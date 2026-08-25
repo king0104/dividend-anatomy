@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getSafetyScore } from "../api/safetyScore";
 import type { Brand, DividendSafetyScoreResponse, SafetyBand } from "../api/types";
+import AnnualDividendChart from "./AnnualDividendChart";
 
 interface Props {
   brand: Brand;
@@ -33,11 +34,13 @@ export default function SafetyScoreScreen({ brand, onBack }: Props) {
   const [result, setResult] = useState<DividendSafetyScoreResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [showTrend, setShowTrend] = useState(false);
 
   useEffect(() => {
     setResult(null);
     setError(null);
     setExpanded(false);
+    setShowTrend(false);
     getSafetyScore(brand.symbol)
       .then(setResult)
       .catch((err: Error) => setError(err.message));
@@ -112,6 +115,19 @@ export default function SafetyScoreScreen({ brand, onBack }: Props) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {expanded && (
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setShowTrend((prev) => !prev)}
+            className="text-center text-xs text-slate-400 underline"
+          >
+            {showTrend ? "연도별 배당금 추이 접기" : "연도별 배당금 추이 더 보기"}
+          </button>
+          {showTrend && <AnnualDividendChart symbol={brand.symbol} />}
         </div>
       )}
 
