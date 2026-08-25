@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getKrwDividends } from "../api/portfolio";
 import type { KrwConvertedEntry } from "../api/types";
+import BrokerSearchCta from "./BrokerSearchCta";
 import { buildMonthlyCashFlow, type Selection, type TaxMode } from "../monthlyBucket";
 import { daysUntil, nextUpcomingDividend } from "../nextDividendEstimate";
 
@@ -183,13 +184,10 @@ export default function PortfolioResultScreen({ monthlyGoalKrw, selections, onBa
         <p>세금은 미국 원천징수 15%만 반영하며, 금융소득종합과세는 별도입니다.</p>
       </div>
 
-      <a
-        href="#"
-        onClick={(event) => event.preventDefault()}
-        className="text-center text-sm text-slate-400 underline"
-      >
-        이런 회사들, 더 찾아볼래요?
-      </a>
+      <div className="flex flex-col items-center gap-3 border-t border-slate-100 pt-4">
+        <p className="text-sm font-medium text-slate-600">실제로 시작하려면?</p>
+        <BrokerSearchCta symbols={selections.map((s) => s.symbol)} />
+      </div>
 
       <button type="button" onClick={onBack} className="text-center text-sm text-slate-400 underline">
         다시 담기

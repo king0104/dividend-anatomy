@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { simulate, todayIso } from "../api/timemachine";
 import type { Brand, InvestMode, TimeMachineSimulationResponse } from "../api/types";
 import { lifeCostConversion } from "../lifeCostConversion";
+import BrokerSearchCta from "./BrokerSearchCta";
 import GrowthChart from "./GrowthChart";
 
 interface Props {
@@ -10,13 +11,21 @@ interface Props {
   amountKrw: number;
   periodYears: number;
   onShare: (result: TimeMachineSimulationResponse) => void;
+  onExploreMore: () => void;
 }
 
 function formatKrw(value: number): string {
   return `${Math.round(value).toLocaleString("ko-KR")}원`;
 }
 
-export default function ResultScreen({ brand, investMode, amountKrw, periodYears, onShare }: Props) {
+export default function ResultScreen({
+  brand,
+  investMode,
+  amountKrw,
+  periodYears,
+  onShare,
+  onExploreMore,
+}: Props) {
   const [result, setResult] = useState<TimeMachineSimulationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,13 +93,14 @@ export default function ResultScreen({ brand, investMode, amountKrw, periodYears
         결과 공유하기
       </button>
 
-      <a
-        href="#"
-        onClick={(event) => event.preventDefault()}
-        className="text-center text-sm text-slate-400 underline"
-      >
+      <div className="flex flex-col items-center gap-3 border-t border-slate-100 pt-4">
+        <p className="text-sm font-medium text-slate-600">실제로 시작하려면?</p>
+        <BrokerSearchCta symbols={[brand.symbol]} />
+      </div>
+
+      <button type="button" onClick={onExploreMore} className="text-center text-sm text-slate-400 underline">
         이런 회사들, 더 찾아볼래요?
-      </a>
+      </button>
     </div>
   );
 }

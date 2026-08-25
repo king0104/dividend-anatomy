@@ -106,6 +106,7 @@ export default function App() {
               amountKrw={inputValues.amountKrw}
               periodYears={inputValues.periodYears}
               onShare={setShareResult}
+              onExploreMore={() => switchMode("portfolio")}
             />
           )}
 
