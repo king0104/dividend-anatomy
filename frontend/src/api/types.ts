@@ -30,3 +30,21 @@ export interface TimeMachineSimulationResponse {
   totalReturnPercent: number;
   yearlySeries: YearlySnapshot[];
 }
+
+// DividendSafetyScoreResponse: com.dividendanatomy.web.safety.DividendSafetyScoreResponse
+export type SafetyBand = "GREEN" | "YELLOW" | "RED";
+
+export interface SafetyIndicator {
+  name: string;
+  value: number;
+  subScore: number;
+}
+
+export interface DividendSafetyScoreResponse {
+  tickerSymbol: string;
+  available: boolean;
+  fiscalDateEnding: string | null;
+  indicators: SafetyIndicator[] | null;
+  totalScore: number | null;
+  band: SafetyBand | null;
+}

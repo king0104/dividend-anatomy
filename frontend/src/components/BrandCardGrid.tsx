@@ -5,6 +5,8 @@ import type { Brand } from "../api/types";
 
 interface Props {
   onSelect: (brand: Brand) => void;
+  title?: string;
+  subtitle?: string;
 }
 
 function LogoOrInitials({ brand }: { brand: Brand }) {
@@ -26,7 +28,11 @@ function LogoOrInitials({ brand }: { brand: Brand }) {
   );
 }
 
-export default function BrandCardGrid({ onSelect }: Props) {
+export default function BrandCardGrid({
+  onSelect,
+  title = "궁금한 회사를 골라보세요",
+  subtitle = "그동안 배당을 꾸준히 준 회사들이에요",
+}: Props) {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,8 +49,8 @@ export default function BrandCardGrid({ onSelect }: Props) {
 
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-1 px-6 py-10 text-center">
-      <h1 className="text-2xl font-bold text-slate-900">궁금한 회사를 골라보세요</h1>
-      <p className="mb-8 text-sm text-slate-500">그동안 배당을 꾸준히 준 회사들이에요</p>
+      <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+      <p className="mb-8 text-sm text-slate-500">{subtitle}</p>
 
       {error && <p className="text-sm text-red-600">브랜드 목록을 불러오지 못했어요: {error}</p>}
 
