@@ -48,3 +48,40 @@ export interface DividendSafetyScoreResponse {
   totalScore: number | null;
   band: SafetyBand | null;
 }
+
+// TickerSummaryResponse: com.dividendanatomy.web.ticker.TickerSummaryResponse
+export type DividendIncreaseStreakStatus = "CALCULATED" | "INSUFFICIENT_DATA";
+
+export interface TickerSummaryResponse {
+  symbol: string;
+  name: string;
+  currency: string;
+  currentPrice: number;
+  regularPaymentsPerYear: number | null;
+  currentYieldPercent: number | null;
+  dataComplete: boolean;
+  streakStatus: DividendIncreaseStreakStatus;
+  streakYears: number | null;
+}
+
+export interface TickerListResponse {
+  tickers: TickerSummaryResponse[];
+}
+
+// KrwDividendConversionResponse: com.dividendanatomy.web.fx.KrwDividendConversionResponse
+export type FxConversionStatus = "CONVERTED" | "PAY_DATE_MISSING" | "NO_RATE_DATA_AVAILABLE";
+
+export interface KrwConvertedEntry {
+  exDividendDate: string;
+  grossAmountUsd: number;
+  netAmountUsd: number;
+  status: FxConversionStatus;
+  exchangeRate: number | null;
+  grossAmountKrw: number | null;
+  netAmountKrw: number | null;
+}
+
+export interface KrwDividendConversionResponse {
+  tickerSymbol: string;
+  entries: KrwConvertedEntry[];
+}

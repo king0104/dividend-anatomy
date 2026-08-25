@@ -1,14 +1,19 @@
 import { useState } from "react";
 import BrandCardGrid from "./components/BrandCardGrid";
+import GoalInputStep from "./components/GoalInputStep";
 import InputStep from "./components/InputStep";
+import PortfolioBuilderStep from "./components/PortfolioBuilderStep";
+import PortfolioResultScreen from "./components/PortfolioResultScreen";
 import ResultScreen from "./components/ResultScreen";
 import SafetyScoreScreen from "./components/SafetyScoreScreen";
 import ShareCard from "./components/ShareCard";
 import type { Brand, InvestMode, TimeMachineSimulationResponse } from "./api/types";
+import type { Selection } from "./monthlyBucket";
 
-type Mode = "timemachine" | "safety";
+type Mode = "timemachine" | "safety" | "portfolio";
 type TimeMachineStep = "brand" | "input" | "result";
 type SafetyStep = "brand" | "result";
+type PortfolioStep = "goal" | "build" | "result";
 
 interface InputValues {
   investMode: InvestMode;
@@ -26,6 +31,20 @@ export default function App() {
 
   const [safetyStep, setSafetyStep] = useState<SafetyStep>("brand");
   const [safetyBrand, setSafetyBrand] = useState<Brand | null>(null);
+
+  const [portfolioStep, setPortfolioStep] = useState<PortfolioStep>("goal");
+  const [monthlyGoalKrw, setMonthlyGoalKrw] = useState(0);
+  const [portfolioSelections, setPortfolioSelections] = useState<Selection[]>([]);
+
+  function handleGoalSubmit(goal: number) {
+    setMonthlyGoalKrw(goal);
+    setPortfolioStep("build");
+  }
+
+  function handlePortfolioSubmit(selections: Selection[]) {
+    setPortfolioSelections(selections);
+    setPortfolioStep("result");
+  }
 
   function handleBrandSelect(selected: Brand) {
     setBrand(selected);
@@ -46,6 +65,7 @@ export default function App() {
     setMode(next);
     setTimeMachineStep("brand");
     setSafetyStep("brand");
+    setPortfolioStep("goal");
   }
 
   return (
@@ -55,6 +75,7 @@ export default function App() {
           [
             { value: "timemachine" as const, label: "타임머신" },
             { value: "safety" as const, label: "배당 안전도" },
+            { value: "portfolio" as const, label: "포트폴리오" },
           ]
         ).map(({ value, label }) => (
           <button
@@ -111,6 +132,22 @@ export default function App() {
 
           {safetyStep === "result" && safetyBrand && (
             <SafetyScoreScreen brand={safetyBrand} onBack={() => setSafetyStep("brand")} />
+          )}
+        </>
+      )}
+
+      {mode === "portfolio" && (
+        <>
+          {portfolioStep === "goal" && <GoalInputStep onSubmit={handleGoalSubmit} />}
+
+          {portfolioStep === "build" && <PortfolioBuilderStep onSubmit={handlePortfolioSubmit} />}
+
+          {portfolioStep === "result" && (
+            <PortfolioResultScreen
+              monthlyGoalKrw={monthlyGoalKrw}
+              selections={portfolioSelections}
+              onBack={() => setPortfolioStep("build")}
+            />
           )}
         </>
       )}
